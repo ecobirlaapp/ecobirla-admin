@@ -17,6 +17,7 @@ let appState = {
     allChallenges: [],
     allEvents: [],
     allLevels: [],
+    charts: {}, // To store chart instances
 };
 
 // --- DOM Elements ---
@@ -40,6 +41,12 @@ const statTotalDistributed = document.getElementById('stat-total-distributed');
 const statTotalRedeemed = document.getElementById('stat-total-redeemed');
 const statTotalBalance = document.getElementById('stat-total-balance');
 const liveActivityFeed = document.getElementById('live-activity-feed');
+const topChampionsList = document.getElementById('top-champions-list');
+
+// NEW: Impact Stats
+const statCo2 = document.getElementById('stat-co2');
+const statRecycled = document.getElementById('stat-recycled');
+const statEvents = document.getElementById('stat-events');
 
 // Table Bodies
 const studentsTableBody = document.getElementById('students-table-body');
@@ -113,7 +120,6 @@ async function uploadToCloudinary(file) {
 
 // --- Dark Mode Logic ---
 function initializeDarkMode() {
-    // const toggle = document.getElementById('theme-toggle'); // Already defined globally
     if (localStorage.getItem('theme') === 'dark') {
         document.documentElement.classList.add('dark');
     } else {
@@ -154,19 +160,50 @@ async function fetchAdminProfile() {
 }
 
 async function fetchDashboardStats() {
-    const [distributed, redeemed, balance] = await Promise.all([
-        supabase.from('points_history').select('points_change').gt('points_change', 0),
-        supabase.from('points_history').select('points_change').eq('type', 'reward-purchase'),
-        supabase.from('students').select('current_points')
-    ]);
+    const { data: distributed, error: distError } = await supabase
+        .from('points_history')
+        .select('points_change')
+        .gt('points_change', 0);
+        
+    const { data: redeemed, error: redError } = await supabase
+        .from('points_history')
+        .select('points_change')
+        .eq('type', 'reward-purchase');
+        
+    const { data: balance, error: balError } = await supabase
+        .from('students')
+        .select('current_points');
 
-    const totalDistributed = distributed.data?.reduce((sum, item) => sum + item.points_change, 0) || 0;
-    const totalRedeemed = redeemed.data?.reduce((sum, item) => sum + item.points_change, 0) || 0;
-    const totalBalance = balance.data?.reduce((sum, item) => sum + item.current_points, 0) || 0;
+    const totalDistributed = distributed?.reduce((sum, item) => sum + item.points_change, 0) || 0;
+    const totalRedeemed = redeemed?.reduce((sum, item) => sum + item.points_change, 0) || 0;
+    const totalBalance = balance?.reduce((sum, item) => sum + item.current_points, 0) || 0;
 
     statTotalDistributed.textContent = totalDistributed;
     statTotalRedeemed.textContent = Math.abs(totalRedeemed);
     statTotalBalance.textContent = totalBalance;
+    
+    // Return totalDistributed for impact card
+    return totalDistributed;
+}
+
+// NEW: Fetch Impact Stats
+async function fetchImpactStats(totalDistributed) {
+    // 1. CO2 (Calculated from input)
+    const co2Saved = (totalDistributed * 0.6).toFixed(1);
+    statCo2.textContent = `${co2Saved} KG`;
+    
+    // 2. Recycled (Count 'plastic' in history)
+    const { count: recycledCount, error: recycledError } = await supabase
+        .from('points_history')
+        .select('*', { count: 'exact', head: true })
+        .ilike('description', '%plastic%');
+        
+    if (!recycledError) {
+        statRecycled.textContent = recycledCount;
+    }
+
+    // 3. Events (Count from appState)
+    statEvents.textContent = appState.allEvents.length;
 }
 
 async function fetchAllStudents() {
@@ -223,17 +260,14 @@ function renderHeader() {
 }
 
 function renderTopChampions() {
-    const container = document.getElementById('top-champions-list');
-    if (!container) return; // Only runs on dashboard
-    
-    container.innerHTML = ''; // Clear list
+    topChampionsList.innerHTML = ''; // Clear list
     
     const sortedStudents = [...appState.allStudents]
         .sort((a, b) => b.current_points - a.current_points)
         .slice(0, 3);
         
     sortedStudents.forEach(student => {
-        container.innerHTML += `
+        topChampionsList.innerHTML += `
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
                     <img src="${student.avatar_url || 'https://placehold.co/40x40/gray/white?text=User'}" class="w-10 h-10 rounded-full">
@@ -247,14 +281,17 @@ function renderTopChampions() {
     });
 
     if (sortedStudents.length === 0) {
-        container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No student data available.</p>';
+        topChampionsList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No student data available.</p>';
     }
     
     lucide.createIcons();
 }
 
-function renderDashboard() {
-    fetchDashboardStats();
+async function renderDashboard() {
+    // Fetch stats and pass distributed points to impact function
+    const totalDistributed = await fetchDashboardStats();
+    await fetchImpactStats(totalDistributed);
+    
     liveActivityFeed.innerHTML = ''; // Clear feed
     appState.allLogs.slice(0, 10).forEach(log => { // Show 10 most recent
         liveActivityFeed.innerHTML += `
@@ -297,6 +334,7 @@ function renderStudents() {
     });
 }
 
+// ... (viewStudentDetails, handleUpdateStudent, renderStores, renderProducts, renderChallenges, renderEvents, renderLevels all remain the same) ...
 async function viewStudentDetails(studentId) {
     logActivity('admin_view_student', { studentId });
     showPage('student-detail', 'Student Details');
@@ -426,11 +464,8 @@ async function handleUpdateStudent(event, studentId) {
     let avatarUrl = document.getElementById('student-avatar-url').value;
 
     if (avatarFile) {
-        // Upload new avatar if one is selected
         const newUrl = await uploadToCloudinary(avatarFile);
-        if (newUrl) {
-            avatarUrl = newUrl;
-        }
+        if (newUrl) { avatarUrl = newUrl; }
     }
 
     const updates = {
@@ -440,7 +475,6 @@ async function handleUpdateStudent(event, studentId) {
         is_admin: document.getElementById('student-is-admin').checked
     };
 
-    // Update the 'students' table
     const { error } = await supabase
         .from('students')
         .update(updates)
@@ -451,9 +485,9 @@ async function handleUpdateStudent(event, studentId) {
     } else {
         alert("Student updated successfully!");
         logActivity('admin_update_student_success', { studentId });
-        await fetchAllStudents(); // Refresh student list
+        await fetchAllStudents();
         renderStudents();
-        viewStudentDetails(studentId); // Refresh detail view
+        viewStudentDetails(studentId);
     }
 }
 
@@ -562,8 +596,98 @@ function renderActivityLog() {
     });
 }
 
-// --- CRUD Modal Logic ---
+// --- NEW: Analytics & Chart Functions ---
 
+function processLogData() {
+    const pageViews = {};
+    const activityOverTime = {}; // Grouping by hour for simplicity
+    
+    const pageViewLogs = appState.allLogs.filter(log => log.activity_type === 'admin_page_view' || log.activity_type === 'page_view');
+    
+    pageViewLogs.forEach(log => {
+        const page = log.details?.page || 'Unknown';
+        pageViews[page] = (pageViews[page] || 0) + 1;
+    });
+
+    appState.allLogs.forEach(log => {
+        const date = new Date(log.created_at);
+        const hour = date.toISOString().slice(0, 13); // Groups by YYYY-MM-DDTHH
+        activityOverTime[hour] = (activityOverTime[hour] || 0) + 1;
+    });
+    
+    // Sort activity by time
+    const sortedActivity = Object.entries(activityOverTime).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+    
+    return {
+        pageViewData: {
+            labels: Object.keys(pageViews),
+            data: Object.values(pageViews),
+        },
+        activityTimeData: {
+            labels: sortedActivity.map(entry => new Date(entry[0]).toLocaleString('en-US', { day: 'numeric', hour: 'numeric' })),
+            data: sortedActivity.map(entry => entry[1]),
+        }
+    };
+}
+
+function renderAnalyticsCharts() {
+    const { pageViewData, activityTimeData } = processLogData();
+    
+    // Destroy old charts if they exist
+    if (appState.charts.pageViews) appState.charts.pageViews.destroy();
+    if (appState.charts.activityTime) appState.charts.activityTime.destroy();
+
+    // 1. Page Views Pie Chart
+    const pvCtx = document.getElementById('page-views-chart').getContext('2d');
+    appState.charts.pageViews = new Chart(pvCtx, {
+        type: 'doughnut',
+        data: {
+            labels: pageViewData.labels,
+            datasets: [{
+                label: 'Page Views',
+                data: pageViewData.data,
+                backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280'],
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            }
+        }
+    });
+
+    // 2. Activity Over Time Bar Chart
+    const atCtx = document.getElementById('activity-time-chart').getContext('2d');
+    appState.charts.activityTime = new Chart(atCtx, {
+        type: 'bar',
+        data: {
+            labels: activityTimeData.labels,
+            datasets: [{
+                label: 'Total Activities Logged',
+                data: activityTimeData.data,
+                backgroundColor: '#10B981',
+                borderColor: '#059669',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+}
+
+
+// --- CRUD Modal Logic ---
+// ... (populateModalForm, openCreateModal, openEditModal, closeCrudModal, handleCrudFormSubmit, handleDelete all remain the same) ...
 function populateModalForm(type, item = null) {
     crudForm.innerHTML = ''; // Clear form
     crudForm.dataset.type = type; // Set type for submit handler
@@ -735,12 +859,11 @@ async function handleCrudFormSubmit(event) {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
 
-    // Handle file upload for products
     if (type === 'products' && formData.get('image_upload')?.size > 0) {
         const file = formData.get('image_upload');
         const imageUrl = await uploadToCloudinary(file);
         if (imageUrl) {
-            data.images = [imageUrl]; // Set images to the new URL
+            data.images = [imageUrl];
         }
     } else if (type === 'products') {
         data.images = data.images.split(',').filter(url => url.trim() !== '');
@@ -790,12 +913,16 @@ window.handleDelete = async (type, id) => {
     }
 }
 
+
 // --- Page Navigation & Initialization ---
 
 async function loadDataForPage(pageId) {
     switch (pageId) {
         case 'dashboard':
             await Promise.all([fetchDashboardStats(), fetchActivityLog()]);
+            break;
+        case 'analytics':
+            // Data is already loaded (allLogs), just need to process it
             break;
         case 'students':
         case 'student-detail':
@@ -830,12 +957,12 @@ function refreshCurrentPage() {
 }
 
 function renderPage(pageId) {
-    // const navButton = Array.from(sidebarNavItems).find(btn => btn.getAttribute('onclick').includes(`'${pageId}'`));
-    // desktopPageTitle.textContent = navButton ? navButton.textContent : 'Dashboard';
-
     switch (pageId) {
         case 'dashboard':
             renderDashboard();
+            break;
+        case 'analytics':
+            renderAnalyticsCharts();
             break;
         case 'students':
             renderStudents();
@@ -923,7 +1050,7 @@ async function loadInitialData() {
 
     // Fetch all data in parallel
     await Promise.all([
-        fetchDashboardStats(),
+        // fetchDashboardStats(), // Now called by renderDashboard
         fetchAllStudents(),
         fetchAllStores(),
         fetchAllProducts(),
@@ -965,7 +1092,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadInitialData();
 
     renderHeader();
-    // renderDashboard() is called by showPage
     
     showPage('dashboard', 'Dashboard');
     lucide.createIcons(); 
