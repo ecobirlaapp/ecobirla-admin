@@ -29,6 +29,7 @@ const themeToggle = document.getElementById('theme-toggle');
 
 // Page Title
 const desktopPageTitle = document.getElementById('desktop-page-title');
+const desktopGreeting = document.getElementById('desktop-greeting');
 
 // Sidebar User Info
 const userAvatarSidebar = document.getElementById('user-avatar-sidebar');
@@ -112,14 +113,14 @@ async function uploadToCloudinary(file) {
 
 // --- Dark Mode Logic ---
 function initializeDarkMode() {
-    const toggle = document.getElementById('theme-toggle');
+    // const toggle = document.getElementById('theme-toggle'); // Already defined globally
     if (localStorage.getItem('theme') === 'dark') {
         document.documentElement.classList.add('dark');
     } else {
         document.documentElement.classList.remove('dark');
     }
     
-    toggle.addEventListener('click', () => {
+    themeToggle.addEventListener('click', () => {
         logActivity('admin_toggle_dark_mode');
         if (document.documentElement.classList.contains('dark')) {
             document.documentElement.classList.remove('dark');
@@ -216,6 +217,40 @@ function renderHeader() {
     const avatar = user.avatar_url || 'https://placehold.co/80x80/gray/white?text=Admin';
     userAvatarSidebar.src = avatar;
     userNameSidebar.textContent = user.name;
+    
+    // Set greeting
+    desktopGreeting.textContent = `Hi, ${user.name.split(' ')[0]}! Let's check the stats.`;
+}
+
+function renderTopChampions() {
+    const container = document.getElementById('top-champions-list');
+    if (!container) return; // Only runs on dashboard
+    
+    container.innerHTML = ''; // Clear list
+    
+    const sortedStudents = [...appState.allStudents]
+        .sort((a, b) => b.current_points - a.current_points)
+        .slice(0, 3);
+        
+    sortedStudents.forEach(student => {
+        container.innerHTML += `
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <img src="${student.avatar_url || 'https://placehold.co/40x40/gray/white?text=User'}" class="w-10 h-10 rounded-full">
+                    <div>
+                        <p class="font-semibold text-gray-900 dark:text-white">${student.name}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">${student.current_points} Pts</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    if (sortedStudents.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No student data available.</p>';
+    }
+    
+    lucide.createIcons();
 }
 
 function renderDashboard() {
@@ -234,6 +269,8 @@ function renderDashboard() {
             </div>
         `;
     });
+    
+    renderTopChampions(); // Render the new champions list
 }
 
 function renderStudents() {
@@ -793,8 +830,8 @@ function refreshCurrentPage() {
 }
 
 function renderPage(pageId) {
-    const navButton = Array.from(sidebarNavItems).find(btn => btn.getAttribute('onclick').includes(`'${pageId}'`));
-    desktopPageTitle.textContent = navButton ? navButton.textContent : 'Dashboard';
+    // const navButton = Array.from(sidebarNavItems).find(btn => btn.getAttribute('onclick').includes(`'${pageId}'`));
+    // desktopPageTitle.textContent = navButton ? navButton.textContent : 'Dashboard';
 
     switch (pageId) {
         case 'dashboard':
@@ -840,7 +877,11 @@ window.showPage = (pageId, pageTitle) => {
     
     logActivity('admin_page_view', { page: pageId });
     
+    // Set the main header title
     desktopPageTitle.textContent = pageTitle || pageId.charAt(0).toUpperCase() + pageId.slice(1);
+    
+    // Hide/show greeting based on page
+    desktopGreeting.classList.toggle('hidden', pageId !== 'dashboard');
     
     loadDataForPage(pageId).then(() => {
         renderPage(pageId);
@@ -924,7 +965,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadInitialData();
 
     renderHeader();
-    renderDashboard();
+    // renderDashboard() is called by showPage
     
     showPage('dashboard', 'Dashboard');
     lucide.createIcons(); 
