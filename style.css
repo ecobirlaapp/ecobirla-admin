@@ -45,3 +45,16 @@ td {
 .form-input {
     @apply mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded-lg shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500;
 }
+
+/* Page Transitions */
+.page { 
+    display: none; 
+    animation: fadeIn 0.3s ease-in-out; 
+}
+.page.active { 
+    display: block; 
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
