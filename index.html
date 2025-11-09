@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style type="text/tailwindcss">
         @tailwind base;
@@ -18,53 +20,18 @@
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
-
-        /* Base card style */
-        .card {
-            @apply bg-white dark:bg-gray-800 shadow-md rounded-xl;
-        }
-
-        /* Sidebar navigation item */
-        .sidebar-nav-item {
-            @apply w-full flex items-center p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700;
-        }
-        .sidebar-nav-item.active {
-            @apply bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 font-semibold;
-        }
-
-        /* Table styles */
-        table {
-            @apply w-full divide-y divide-gray-200 dark:divide-gray-700;
-        }
-        thead {
-            @apply bg-gray-50 dark:bg-gray-700;
-        }
-        th {
-            @apply px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider;
-        }
-        tbody {
-            @apply bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700;
-        }
-        td {
-            @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white;
-        }
-
-        /* Form inputs in modals */
-        .form-label {
-            @apply block text-sm font-medium text-gray-700 dark:text-gray-200;
-        }
-        .form-input {
-            @apply mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded-lg shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500;
-        }
-
-        /* Page Transitions */
-        .page { 
-            display: none; 
-            animation: fadeIn 0.3s ease-in-out; 
-        }
-        .page.active { 
-            display: block; 
-        }
+        .card { @apply bg-white dark:bg-gray-800 shadow-md rounded-xl; }
+        .sidebar-nav-item { @apply w-full flex items-center p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700; }
+        .sidebar-nav-item.active { @apply bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 font-semibold; }
+        table { @apply w-full divide-y divide-gray-200 dark:divide-gray-700; }
+        thead { @apply bg-gray-50 dark:bg-gray-700; }
+        th { @apply px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider; }
+        tbody { @apply bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700; }
+        td { @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white; }
+        .form-label { @apply block text-sm font-medium text-gray-700 dark:text-gray-200; }
+        .form-input { @apply mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 rounded-lg shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500; }
+        .page { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .page.active { display: block; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -98,6 +65,9 @@
                 <h3 class="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Main</h3>
                 <button onclick="showPage('dashboard', 'Dashboard')" class="sidebar-nav-item active">
                     <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3"></i>Dashboard
+                </button>
+                <button onclick="showPage('analytics', 'Analytics')" class="sidebar-nav-item">
+                    <i data-lucide="pie-chart" class="w-5 h-5 mr-3"></i>Analytics
                 </button>
                 <button onclick="showPage('students', 'Student Management')" class="sidebar-nav-item">
                     <i data-lucide="users" class="w-5 h-5 mr-3"></i>Students
@@ -189,31 +159,52 @@
                         </div>
                         
                         <div class="card p-6">
-                            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Your Impact (Example)</h2>
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Our Impact</h2>
                             <div class="flex justify-around text-center">
                                 <div>
                                     <i data-lucide="footprints" class="w-10 h-10 text-green-500 mx-auto"></i>
-                                    <p class="text-xl font-bold text-gray-900 dark:text-white">24.0 KG</p>
+                                    <p id="stat-co2" class="text-xl font-bold text-gray-900 dark:text-white">0 KG</p>
                                     <p class="text-sm text-gray-500 dark:text-gray-400">CO2 Saved</p>
                                 </div>
                                 <div>
                                     <i data-lucide="recycle" class="w-10 h-10 text-blue-500 mx-auto"></i>
-                                    <p class="text-xl font-bold text-gray-900 dark:text-white">78</p>
+                                    <p id="stat-recycled" class="text-xl font-bold text-gray-900 dark:text-white">0</p>
                                     <p class="text-sm text-gray-500 dark:text-gray-400">Recycled</p>
                                 </div>
                                 <div>
                                     <i data-lucide="calendar" class="w-10 h-10 text-purple-500 mx-auto"></i>
-                                    <p class="text-xl font-bold text-gray-900 dark:text-white">2</p>
+                                    <p id="stat-events" class="text-xl font-bold text-gray-900 dark:text-white">0</p>
                                     <p class="text-sm text-gray-500 dark:text-gray-400">Events</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+                
+                <div id="analytics" class="page p-6 space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-1 card p-6">
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Page View Distribution</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Based on last 100 page view logs.</p>
+                            <canvas id="page-views-chart"></canvas>
+                        </div>
+                        
+                        <div class="lg:col-span-2 card p-6">
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Activity Over Time</h2>
+                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Based on last 100 activity logs.</p>
+                            <canvas id="activity-time-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card p-6">
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Future Analytics</h2>
+                        <p class="text-gray-600 dark:text-gray-300">
+                            This is where you could add date range selectors and more complex charts for active users (daily, weekly, monthly)
+                            by calling custom Supabase database functions (RPC).
+                        </p>
+                    </div>
+                </div>
 
                 <div id="students" class="page p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        </div>
                     <div class="card overflow-hidden">
                         <table class="min-w-full">
                             <thead>
@@ -296,8 +287,6 @@
                 </div>
                 
                 <div id="activity-log" class="page p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        </div>
                     <div class="card overflow-hidden">
                         <table class="min-w-full">
                             <thead><tr><th>Time</th><th>Student</th><th>Activity</th><th>Details</th></tr></thead>
