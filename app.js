@@ -120,6 +120,7 @@ function initializeDarkMode() {
     }
     
     toggle.addEventListener('click', () => {
+        logActivity('admin_toggle_dark_mode');
         if (document.documentElement.classList.contains('dark')) {
             document.documentElement.classList.remove('dark');
             localStorage.setItem('theme', 'light');
@@ -152,7 +153,6 @@ async function fetchAdminProfile() {
 }
 
 async function fetchDashboardStats() {
-    // Run all stat queries in parallel
     const [distributed, redeemed, balance] = await Promise.all([
         supabase.from('points_history').select('points_change').gt('points_change', 0),
         supabase.from('points_history').select('points_change').eq('type', 'reward-purchase'),
@@ -534,7 +534,6 @@ function populateModalForm(type, item = null) {
 
     let fields = '';
     
-    // Define fields for each table
     switch (type) {
         case 'stores':
             fields = `
@@ -654,7 +653,6 @@ function populateModalForm(type, item = null) {
             break;
     }
     
-    // Add submit button
     fields += `
         <button type="submit" id="modal-submit-button" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg">
             ${item ? 'Update' : 'Create'}
@@ -708,18 +706,15 @@ async function handleCrudFormSubmit(event) {
             data.images = [imageUrl]; // Set images to the new URL
         }
     } else if (type === 'products') {
-        // Convert comma-separated string back to array
         data.images = data.images.split(',').filter(url => url.trim() !== '');
     }
-    delete data.image_upload; // Remove file from data object
+    delete data.image_upload;
     
     let query;
     if (isEdit) {
-        // --- UPDATE ---
         const primaryKey = type === 'levels' ? 'level_number' : 'id';
         query = supabase.from(type).update(data).eq(primaryKey, id);
     } else {
-        // --- CREATE ---
         query = supabase.from(type).insert(data);
     }
     
@@ -732,8 +727,8 @@ async function handleCrudFormSubmit(event) {
         alert(`${type.slice(0, -1)} ${isEdit ? 'updated' : 'created'} successfully!`);
         logActivity('admin_crud_success', { type, id });
         closeCrudModal();
-        await loadDataForPage(type); // Reload only the data that changed
-        refreshCurrentPage(); // Re-render the current view
+        await loadDataForPage(type); 
+        refreshCurrentPage();
     }
 }
 
@@ -761,8 +756,6 @@ window.handleDelete = async (type, id) => {
 // --- Page Navigation & Initialization ---
 
 async function loadDataForPage(pageId) {
-    // This loads *all* data, but you could optimize it
-    // to only fetch data for the specific page being shown.
     switch (pageId) {
         case 'dashboard':
             await Promise.all([fetchDashboardStats(), fetchActivityLog()]);
@@ -800,11 +793,9 @@ function refreshCurrentPage() {
 }
 
 function renderPage(pageId) {
-    // Find the button with this pageId and set its title
     const navButton = Array.from(sidebarNavItems).find(btn => btn.getAttribute('onclick').includes(`'${pageId}'`));
     desktopPageTitle.textContent = navButton ? navButton.textContent : 'Dashboard';
 
-    // Call the specific render function
     switch (pageId) {
         case 'dashboard':
             renderDashboard();
@@ -830,11 +821,10 @@ function renderPage(pageId) {
         case 'activity-log':
             renderActivityLog();
             break;
-        // student-detail and change-password are handled by other functions
     }
 }
 
-window.showPage = (pageId) => {
+window.showPage = (pageId, pageTitle) => {
     pages.forEach(p => p.classList.remove('active'));
     
     const newPage = document.getElementById(pageId);
@@ -850,7 +840,8 @@ window.showPage = (pageId) => {
     
     logActivity('admin_page_view', { page: pageId });
     
-    // Load data and render
+    desktopPageTitle.textContent = pageTitle || pageId.charAt(0).toUpperCase() + pageId.slice(1);
+    
     loadDataForPage(pageId).then(() => {
         renderPage(pageId);
     });
@@ -865,7 +856,6 @@ async function checkAuth() {
         return false;
     }
     
-    // Check if user is admin
     const { data: isAdmin, error } = await supabase.rpc('is_admin');
     if (error || !isAdmin) {
         await supabase.auth.signOut();
@@ -888,6 +878,8 @@ async function loadInitialData() {
         return;
     }
 
+    logActivity('admin_login_success');
+
     // Fetch all data in parallel
     await Promise.all([
         fetchDashboardStats(),
@@ -906,7 +898,6 @@ async function loadInitialData() {
 // Make functions globally accessible for inline onclick=""
 Object.assign(window, {
     showPage,
-    toggleSidebar: () => {}, // Desktop doesn't need this
     openCreateModal,
     openEditModal,
     closeCrudModal,
@@ -935,6 +926,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderHeader();
     renderDashboard();
     
-    showPage('dashboard');
+    showPage('dashboard', 'Dashboard');
     lucide.createIcons(); 
 });
