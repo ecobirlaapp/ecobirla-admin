@@ -5,9 +5,6 @@
     <title>EcoBirla Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.autotable.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="https://i.ibb.co/d00b4v0n/Eco-Birla-2-modified.png">
     <style>
@@ -83,9 +80,7 @@
 
         <div id="page-dashboard" class="page p-4"> <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Dashboard</h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"> <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700"> <div class="flex items-center">
                         <i data-lucide="gift" class="w-8 h-8 text-green-500 dark:text-green-400 mr-4"></i>
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Total EcoPoints Distributed</p>
@@ -93,8 +88,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center">
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700"> <div class="flex items-center">
                         <i data-lucide="shopping-cart" class="w-8 h-8 text-red-500 dark:text-red-400 mr-4"></i>
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Total EcoPoints Redeemed</p>
@@ -102,8 +96,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center">
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700"> <div class="flex items-center">
                         <i data-lucide="bar-chart-2" class="w-8 h-8 text-blue-500 dark:text-blue-400 mr-4"></i>
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Total Current Balance</p>
@@ -114,9 +107,7 @@
             </div>
 
             <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Our Impact</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"> <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700"> <div class="flex items-center">
                         <i data-lucide="leaf" class="w-8 h-8 text-green-500 dark:text-green-400 mr-4"></i>
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">CO2 Saved (Est.)</p>
@@ -124,8 +115,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center">
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700"> <div class="flex items-center">
                         <i data-lucide="recycle" class="w-8 h-8 text-blue-500 dark:text-blue-400 mr-4"></i>
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Items Recycled</p>
@@ -133,8 +123,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center">
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700"> <div class="flex items-center">
                         <i data-lucide="calendar-check" class="w-8 h-8 text-purple-500 dark:text-purple-400 mr-4"></i>
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Event Attendances</p>
@@ -406,6 +395,11 @@
         <p id="toast-message">Success!</p>
     </div>
 
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.autotable.min.js"></script>
+    
     <script src="app.js" type="module"></script>
 </body>
 </html>
