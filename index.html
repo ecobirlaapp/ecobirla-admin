@@ -15,7 +15,7 @@
         html { color-scheme: light dark; }
     </style>
     <script>
-        // Set initial theme from localStorage or system preference
+        // Set initial theme from localStorage 
         if (localStorage.getItem('theme') === 'light' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: light)').matches)) {
             document.documentElement.classList.remove('dark');
         } else {
