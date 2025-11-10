@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en" class="dark"> <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EcoBirla Admin</title>
@@ -13,47 +12,60 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="https://i.ibb.co/d00b4v0n/Eco-Birla-2-modified.png">
     <style>
-        html { color-scheme: dark; }
+        html { color-scheme: light dark; }
     </style>
+    <script>
+        // Set initial theme from localStorage or system preference
+        if (localStorage.getItem('theme') === 'light' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
 </head>
-<body class="bg-gray-900 text-gray-100 flex h-screen overflow-hidden">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex h-screen overflow-hidden">
 
-    <div id="app-loader" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-900">
+    <div id="app-loader" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
         <img src="https://i.ibb.co/d00b4v0n/Eco-Birla-2-modified.png" alt="EcoBirla Logo" class="w-16 h-16 mb-4 animate-pulse">
-        <p class="text-lg font-semibold text-gray-300">Loading Admin Dashboard...</p>
+        <p class="text-lg font-semibold text-gray-700 dark:text-gray-300">Loading Admin Dashboard...</p>
     </div>
 
-    <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col flex-shrink-0">
-        <div class="p-4 flex items-center justify-center border-b border-gray-700">
+    <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0">
+        <div class="p-4 flex items-center justify-center border-b border-gray-200 dark:border-gray-700">
             <img src="https://i.ibb.co/d00b4v0n/Eco-Birla-2-modified.png" alt="Logo" class="w-10 h-10 mr-2">
-            <h1 class="text-xl font-bold text-white">EcoBirla Admin</h1>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">EcoBirla Admin</h1>
         </div>
         <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-            <a href="#dashboard" class="sidebar-link active flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700">
+            <a href="#dashboard" class="sidebar-link active flex items-center p-3 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700">
                 <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3"></i>Dashboard
             </a>
-            <a href="#students" class="sidebar-link flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700">
+            <a href="#students" class="sidebar-link flex items-center p-3 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700">
                 <i data-lucide="users" class="w-5 h-5 mr-3"></i>Students
             </a>
-            <a href="#events" class="sidebar-link flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700">
+            <a href="#events" class="sidebar-link flex items-center p-3 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700">
                 <i data-lucide="calendar" class="w-5 h-5 mr-3"></i>Events
             </a>
-            <a href="#store" class="sidebar-link flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700">
+            <a href="#store" class="sidebar-link flex items-center p-3 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700">
                 <i data-lucide="store" class="w-5 h-5 mr-3"></i>Eco-Store
             </a>
-            <a href="#content" class="sidebar-link flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700">
+            <a href="#content" class="sidebar-link flex items-center p-3 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700">
                 <i data-lucide="database" class="w-5 h-5 mr-3"></i>Content
             </a>
         </nav>
-        <div class="p-4 border-t border-gray-700">
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+            <button id="theme-toggle" class="w-full flex items-center justify-center p-3 mb-4 rounded-lg text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">
+                <i data-lucide="sun" class="w-5 h-5 mr-2 hidden" id="theme-icon-light"></i>
+                <i data-lucide="moon" class="w-5 h-5 mr-2 hidden" id="theme-icon-dark"></i>
+                <span id="theme-toggle-text">Toggle Theme</span>
+            </button>
             <div id="admin-user-card" class="flex items-center mb-4">
                 <img id="admin-avatar" src="https://placehold.co/80x80/gray/white?text=A" class="w-10 h-10 rounded-full mr-3">
                 <div>
-                    <h4 id="admin-name" class="font-semibold text-white">Loading...</h4>
-                    <p class="text-xs text-gray-400">Administrator</p>
+                    <h4 id="admin-name" class="font-semibold text-gray-900 dark:text-white">Loading...</h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Administrator</p>
                 </div>
             </div>
-            <button id="logout-button" class="w-full flex items-center justify-center p-3 rounded-lg text-red-300 bg-red-900/50 hover:bg-red-800/50">
+            <button id="logout-button" class="w-full flex items-center justify-center p-3 rounded-lg text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-800/50">
                 <i data-lucide="log-out" class="w-5 h-5 mr-2"></i>Log Out
             </button>
         </div>
@@ -62,98 +74,106 @@
     <main class="flex-1 overflow-y-auto">
         
         <div id="page-dashboard" class="page p-6 md:p-8">
-            <h2 class="text-3xl font-bold text-white mb-6">Dashboard</h2>
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Dashboard</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center">
-                        <i data-lucide="gift" class="w-8 h-8 text-green-400 mr-4"></i>
+                        <i data-lucide="gift" class="w-8 h-8 text-green-500 dark:text-green-400 mr-4"></i>
                         <div>
-                            <p class="text-sm text-gray-400">Total EcoPoints Distributed</p>
-                            <p id="stat-total-distributed" class="text-3xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total EcoPoints Distributed</p>
+                            <p id="stat-total-distributed" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
                         </div>
                     </div>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center">
-                        <i data-lucide="shopping-cart" class="w-8 h-8 text-red-400 mr-4"></i>
+                        <i data-lucide="shopping-cart" class="w-8 h-8 text-red-500 dark:text-red-400 mr-4"></i>
                         <div>
-                            <p class="text-sm text-gray-400">Total EcoPoints Redeemed</p>
-                            <p id="stat-total-redeemed" class="text-3xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total EcoPoints Redeemed</p>
+                            <p id="stat-total-redeemed" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
                         </div>
                     </div>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center">
-                        <i data-lucide="bar-chart-2" class="w-8 h-8 text-blue-400 mr-4"></i>
+                        <i data-lucide="bar-chart-2" class="w-8 h-8 text-blue-500 dark:text-blue-400 mr-4"></i>
                         <div>
-                            <p class="text-sm text-gray-400">Total Current Balance</p>
-                            <p id="stat-current-balance" class="text-3xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total Current Balance</p>
+                            <p id="stat-current-balance" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <h3 class="text-2xl font-bold text-white mb-4">Our Impact</h3>
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Our Impact</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center">
-                        <i data-lucide="leaf" class="w-8 h-8 text-green-400 mr-4"></i>
+                        <i data-lucide="leaf" class="w-8 h-8 text-green-500 dark:text-green-400 mr-4"></i>
                         <div>
-                            <p class="text-sm text-gray-400">CO2 Saved (Est.)</p>
-                            <p id="stat-co2-saved" class="text-3xl font-bold text-white">0 kg</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">CO2 Saved (Est.)</p>
+                            <p id="stat-co2-saved" class="text-3xl font-bold text-gray-900 dark:text-white">0 kg</p>
                         </div>
                     </div>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center">
-                        <i data-lucide="recycle" class="w-8 h-8 text-blue-400 mr-4"></i>
+                        <i data-lucide="recycle" class="w-8 h-8 text-blue-500 dark:text-blue-400 mr-4"></i>
                         <div>
-                            <p class="text-sm text-gray-400">Items Recycled</p>
-                            <p id="stat-items-recycled" class="text-3xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Items Recycled</p>
+                            <p id="stat-items-recycled" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
                         </div>
                     </div>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center">
-                        <i data-lucide="calendar-check" class="w-8 h-8 text-purple-400 mr-4"></i>
+                        <i data-lucide="calendar-check" class="w-8 h-8 text-purple-500 dark:text-purple-400 mr-4"></i>
                         <div>
-                            <p class="text-sm text-gray-400">Event Attendances</p>
-                            <p id="stat-events-attended" class="text-3xl font-bold text-white">0</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Event Attendances</p>
+                            <p id="stat-events-attended" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <h3 class="text-2xl font-bold text-white mb-4">Analytics</h3>
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Analytics</h3>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <h4 class="text-lg font-semibold text-white mb-4">Views Over Time</h4>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Views Over Time</h4>
+                        <div class="flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg">
+                            <button class="analytics-range-btn px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="day">Day</button>
+                            <button class="analytics-range-btn px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300 analytics-active" data-range="week">Week</button>
+                            <button class="analytics-range-btn px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="month">Month</button>
+                            <button class="analytics-range-btn px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="year">Year</button>
+                        </div>
+                    </div>
                     <canvas id="views-over-time-chart"></canvas>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <h4 class="text-lg font-semibold text-white mb-4">Page View Distribution</h4>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Page View Distribution</h4>
                     <canvas id="page-view-chart"></canvas>
                 </div>
             </div>
 
-            <h3 class="text-2xl font-bold text-white mb-4">Recent Activity</h3>
-            <div id="activity-log-feed" class="bg-gray-800 p-4 rounded-lg border border-gray-700 max-h-96 overflow-y-auto">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Recent Activity</h3>
+            <div id="activity-log-feed" class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
                 </div>
         </div>
 
         <div id="page-students" class="page p-6 md:p-8 hidden">
-            <h2 class="text-3xl font-bold text-white mb-6">Student Management</h2>
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Student Management</h2>
 
-            <h3 class="text-2xl font-bold text-white mb-4">Top Champions</h3>
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Top Champions</h3>
             <div id="top-champions-list" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
                 </div>
             
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-white">All Students</h3>
-                <input type="text" id="student-search" placeholder="Search students by name or ID..." class="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                <h3 class="text-2xl font-bold text-gray-900 dark:text-white">All Students</h3>
+                <input type="text" id="student-search" placeholder="Search students by name or ID..." class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
             </div>
-            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -173,36 +193,36 @@
         </div>
 
         <div id="page-student-detail" class="page p-6 md:p-8 hidden">
-            <button class="back-btn flex items-center text-green-400 hover:text-green-300 mb-4" data-target="page-students">
+            <button class="back-btn flex items-center text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 mb-4" data-target="page-students">
                 <i data-lucide="arrow-left" class="w-5 h-5 mr-2"></i>Back to All Students
             </button>
-            <h2 id="student-detail-name" class="text-3xl font-bold text-white mb-6">Loading...</h2>
+            <h2 id="student-detail-name" class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Loading...</h2>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-1 bg-gray-800 p-6 rounded-lg border border-gray-700 self-start">
+                <div class="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 self-start">
                     <img id="student-detail-avatar" src="https://placehold.co/80x80/gray/white?text=S" class="w-24 h-24 rounded-full mx-auto mb-4 border-2 border-green-500">
-                    <h3 id="student-detail-name-card" class="text-xl font-bold text-center text-white"></h3>
-                    <p id="student-detail-email" class="text-sm text-gray-400 text-center mb-4"></p>
+                    <h3 id="student-detail-name-card" class="text-xl font-bold text-center text-gray-900 dark:text-white"></h3>
+                    <p id="student-detail-email" class="text-sm text-gray-500 dark:text-gray-400 text-center mb-4"></p>
                     
-                    <div class="space-y-2">
-                        <div class="flex justify-between"><span class="text-gray-400">Student ID:</span> <span id="student-detail-id" class="font-semibold"></span></div>
-                        <div class="flex justify-between"><span class="text-gray-400">Course:</span> <span id="student-detail-course" class="font-semibold"></span></div>
-                        <div class="flex justify-between"><span class="text-gray-400">Mobile:</span> <span id="student-detail-mobile" class="font-semibold"></span></div>
-                        <div class="flex justify-between"><span class="text-gray-400">Current Pts:</span> <span id="student-detail-current-pts" class="font-semibold text-green-400"></span></div>
-                        <div class="flex justify-between"><span class="text-gray-400">Lifetime Pts:</span> <span id="student-detail-lifetime-pts" class="font-semibold text-blue-400"></span></div>
-                        <div class="flex justify-between"><span class="text-gray-400">Is Admin:</span> <span id="student-detail-is-admin" class="font-semibold"></span></div>
-                        <div class="flex justify-between"><span class="text-gray-400">Joined:</span> <span id="student-detail-joined" class="font-semibold"></span></div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">Student ID:</span> <span id="student-detail-id" class="font-semibold text-gray-700 dark:text-gray-200"></span></div>
+                        <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">Course:</span> <span id="student-detail-course" class="font-semibold text-gray-700 dark:text-gray-200"></span></div>
+                        <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">Mobile:</span> <span id="student-detail-mobile" class="font-semibold text-gray-700 dark:text-gray-200"></span></div>
+                        <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">Current Pts:</span> <span id="student-detail-current-pts" class="font-semibold text-green-600 dark:text-green-400"></span></div>
+                        <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">Lifetime Pts:</span> <span id="student-detail-lifetime-pts" class="font-semibold text-blue-600 dark:text-blue-400"></span></div>
+                        <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">Is Admin:</span> <span id="student-detail-is-admin" class="font-semibold text-gray-700 dark:text-gray-200"></span></div>
+                        <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">Joined:</span> <span id="student-detail-joined" class="font-semibold text-gray-700 dark:text-gray-200"></span></div>
                     </div>
                     <button id="edit-student-btn" class="w-full bg-green-600 text-white font-bold py-2 rounded-lg hover:bg-green-700 mt-6">
                         Edit Student
                     </button>
                 </div>
 
-                <div class="lg:col-span-2 bg-gray-800 rounded-lg border border-gray-700">
-                    <div class="flex border-b border-gray-700">
-                        <button class="student-tab active p-4 font-semibold text-white" data-tab="history">Transactions</button>
-                        <button class="student-tab p-4 font-semibold text-gray-400" data-tab="rewards">Rewards</button>
-                        <button class="student-tab p-4 font-semibold text-gray-400" data-tab="logs">Activity Log</button>
+                <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="flex border-b border-gray-200 dark:border-gray-700">
+                        <button class="student-tab active p-4 font-semibold" data-tab="history">Transactions</button>
+                        <button class="student-tab p-4 font-semibold text-gray-500 dark:text-gray-400" data-tab="rewards">Rewards</button>
+                        <button class="student-tab p-4 font-semibold text-gray-500 dark:text-gray-400" data-tab="logs">Activity Log</button>
                     </div>
                     <div class="p-4">
                         <div id="tab-history" class="student-tab-content">
@@ -230,12 +250,12 @@
 
         <div id="page-events" class="page p-6 md:p-8 hidden">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold text-white">Event Management</h2>
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Event Management</h2>
                 <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-event">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Event
                 </button>
             </div>
-            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -253,10 +273,10 @@
         </div>
         
         <div id="page-event-detail" class="page p-6 md:p-8 hidden">
-            <button class="back-btn flex items-center text-green-400 hover:text-green-300 mb-4" data-target="page-events">
+            <button class="back-btn flex items-center text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 mb-4" data-target="page-events">
                 <i data-lucide="arrow-left" class="w-5 h-5 mr-2"></i>Back to All Events
             </button>
-            <h2 id="event-detail-title" class="text-3xl font-bold text-white mb-6">Loading...</h2>
+            <h2 id="event-detail-title" class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Loading...</h2>
             
             <div class="flex items-center space-x-4 mb-6">
                 <button id="award-points-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">
@@ -270,7 +290,7 @@
                 </button>
             </div>
             
-            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -293,15 +313,15 @@
         </div>
 
         <div id="page-store" class="page p-6 md:p-8 hidden">
-            <h2 class="text-3xl font-bold text-white mb-6">Eco-Store Management</h2>
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Eco-Store Management</h2>
             
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-white">Stores</h3>
+                <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Stores</h3>
                 <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-store">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Store
                 </button>
             </div>
-            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
                 <table class="data-table">
                     <thead><tr><th>Logo</th><th>Name</th><th>Actions</th></tr></thead>
                     <tbody id="stores-table-body"></tbody>
@@ -309,12 +329,12 @@
             </div>
 
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-white">Products</h3>
+                <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Products</h3>
                 <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-product">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Product
                 </button>
             </div>
-            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <table class="data-table">
                     <thead><tr><th>Image</th><th>Name</th><th>Store</th><th>Cost (Pts)</th><th>Price (INR)</th><th>Actions</th></tr></thead>
                     <tbody id="products-table-body"></tbody>
@@ -323,15 +343,15 @@
         </div>
 
         <div id="page-content" class="page p-6 md:p-8 hidden">
-            <h2 class="text-3xl font-bold text-white mb-6">Content Management</h2>
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Content Management</h2>
             
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-white">Challenges</h3>
+                <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Challenges</h3>
                 <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-challenge">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Challenge
                 </button>
             </div>
-            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
                 <table class="data-table">
                     <thead><tr><th>Icon</th><th>Title</th><th>Points</th><th>Is Daily?</th><th>Actions</th></tr></thead>
                     <tbody id="challenges-table-body"></tbody>
@@ -339,12 +359,12 @@
             </div>
 
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-white">Levels</h3>
+                <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Levels</h3>
                 <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-level">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Level
                 </button>
             </div>
-            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <table class="data-table">
                     <thead><tr><th>Level #</th><th>Title</th><th>Min. Points</th><th>Actions</th></tr></thead>
                     <tbody id="levels-table-body"></tbody>
@@ -356,21 +376,21 @@
 
     <div id="modal-backdrop" class="fixed inset-0 z-40 bg-black/70 hidden opacity-0"></div>
     
-    <div id="modal-container" class="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-gray-800 rounded-lg shadow-xl border border-gray-700 hidden transform scale-95 opacity-0 overflow-y-auto">
+    <div id="modal-container" class="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 hidden transform scale-95 opacity-0 overflow-y-auto">
         <form id="modal-form" class="p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 id="modal-title" class="text-2xl font-bold text-white">Modal Title</h3>
-                <button type="button" id="modal-close-btn" class="text-gray-400 hover:text-white">
+                <h3 id="modal-title" class="text-2xl font-bold text-gray-900 dark:text-white">Modal Title</h3>
+                <button type="button" id="modal-close-btn" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
             
-            <div id="modal-body" class="space-y-4">
+            <div id="modal-body" class="space-y-4 text-gray-700 dark:text-gray-300">
                 </div>
             
             <div id="modal-footer" class="mt-6 flex justify-end space-x-4">
-                <p id="modal-error" class="text-red-400 text-sm mr-auto"></p>
-                <button type="button" id="modal-cancel-btn" class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500">Cancel</button>
+                <p id="modal-error" class="text-red-500 dark:text-red-400 text-sm mr-auto"></p>
+                <button type="button" id="modal-cancel-btn" class="bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
                 <button type="submit" id="modal-save-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Save Changes</button>
             </div>
         </form>
