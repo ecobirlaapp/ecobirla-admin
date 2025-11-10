@@ -108,8 +108,14 @@ const toastMessage = document.getElementById('toast-message');
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Scripts are now loaded, so we can run setup.
+    // Lucide is first.
     lucide.createIcons();
+    
+    // Then check auth and load data
     checkAuthAndAdmin();
+
+    // Then set up all event listeners
     setupEventListeners();
 });
 
@@ -451,7 +457,7 @@ function renderAnalyticsCharts(range = 'week') {
         }, {});
     
     if (state.pageViewChart) state.pageViewChart.destroy();
-    state.pageViewChart = new Chart(pageViewCtx, {
+    state.pageViewChart = new Chart(pageViewCtx, { // <-- FIX: Chart is now defined
         type: 'doughnut',
         data: {
             labels: Object.keys(pageViews),
