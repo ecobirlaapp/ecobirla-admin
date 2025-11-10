@@ -23,9 +23,9 @@
         }
     </script>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex h-screen overflow-hidden">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex h-screen overflow-hidden">
 
-    <div id="app-loader" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div id="app-loader" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
         <img src="https://i.ibb.co/d00b4v0n/Eco-Birla-2-modified.png" alt="EcoBirla Logo" class="w-16 h-16 mb-4 animate-pulse">
         <p class="text-lg font-semibold text-gray-700 dark:text-gray-300">Loading Admin Dashboard...</p>
     </div>
@@ -82,7 +82,7 @@
             <h1 class="text-lg font-bold text-gray-900 dark:text-white">EcoBirla Admin</h1>
             <div class="w-10"></div> </header>
 
-        <div id="page-dashboard" class="page p-6 md:p-8">
+        <div id="page-dashboard" class="page p-4 md:p-6">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Dashboard</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -171,7 +171,7 @@
                 </div>
         </div>
 
-        <div id="page-students" class="page p-6 md:p-8 hidden">
+        <div id="page-students" class="page p-4 md:p-6 hidden">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Student Management</h2>
 
             <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Top Champions</h3>
@@ -201,7 +201,7 @@
             </div>
         </div>
 
-        <div id="page-student-detail" class="page p-6 md:p-8 hidden">
+        <div id="page-student-detail" class="page p-4 md:p-6 hidden">
             <button class="back-btn flex items-center text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 mb-4" data-target="page-students">
                 <i data-lucide="arrow-left" class="w-5 h-5 mr-2"></i>Back to All Students
             </button>
@@ -263,10 +263,10 @@
             </div>
         </div>
 
-        <div id="page-events" class="page p-6 md:p-8 hidden">
+        <div id="page-events" class="page p-4 md:p-6 hidden">
             <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
                 <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Event Management</h2>
-                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 w-full sm:w-auto">
+                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 w-full sm:w-auto" data-modal="modal-event">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Event
                 </button>
             </div>
@@ -287,7 +287,7 @@
             </div>
         </div>
         
-        <div id="page-event-detail" class="page p-6 md:p-8 hidden">
+        <div id="page-event-detail" class="page p-4 md:p-6 hidden">
             <button class="back-btn flex items-center text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 mb-4" data-target="page-events">
                 <i data-lucide="arrow-left" class="w-5 h-5 mr-2"></i>Back to All Events
             </button>
@@ -327,7 +327,7 @@
             </div>
         </div>
 
-        <div id="page-store" class="page p-6 md:p-8 hidden">
+        <div id="page-store" class="page p-4 md:p-6 hidden">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Eco-Store Management</h2>
             
             <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
@@ -357,7 +357,7 @@
             </div>
         </div>
 
-        <div id="page-content" class="page p-6 md:p-8 hidden">
+        <div id="page-content" class="page p-4 md:p-6 hidden">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Content Management</h2>
             
             <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
