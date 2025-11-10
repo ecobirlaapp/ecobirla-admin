@@ -26,9 +26,9 @@ const state = {
 // --- DOM ELEMENTS ---
 const loader = document.getElementById('app-loader');
 const allPages = document.querySelectorAll('.page');
-const sidebar = document.getElementById('sidebar'); // <-- NEW
-const sidebarBackdrop = document.getElementById('sidebar-backdrop'); // <-- NEW
-const menuToggleBtn = document.getElementById('menu-toggle-btn'); // <-- NEW
+const sidebar = document.getElementById('sidebar');
+const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+const menuToggleBtn = document.getElementById('menu-toggle-btn');
 const sidebarLinks = document.querySelectorAll('.sidebar-link');
 const logoutButton = document.getElementById('logout-button');
 const adminAvatar = document.getElementById('admin-avatar');
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function checkAuthAndAdmin() {
-    const { data: { session }, error } = await supabase.auth.getSession(); // <-- THIS LINE IS FIXED
+    const { data: { session }, error } = await supabase.auth.getSession();
 
     if (error || !session) {
         window.location.href = 'login.html';
@@ -169,14 +169,14 @@ async function loadInitialData() {
             supabase.from('levels').select('*').order('level_number')
         ]);
 
-        state.allStudents = students.data;
-        state.allHistory = history.data;
-        state.allActivity = activity.data;
-        state.allEvents = events.data;
-        state.allStores = stores.data;
-        state.allProducts = products.data;
-        state.allChallenges = challenges.data;
-        state.allLevels = levels.data;
+        state.allStudents = students.data || [];
+        state.allHistory = history.data || [];
+        state.allActivity = activity.data || [];
+        state.allEvents = events.data || [];
+        state.allStores = stores.data || [];
+        state.allProducts = products.data || [];
+        state.allChallenges = challenges.data || [];
+        state.allLevels = levels.data || [];
 
         // Render default page
         renderDashboard();
@@ -310,7 +310,9 @@ function setupEventListeners() {
     // Add New Buttons
     document.querySelectorAll('.add-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            const modalType = e.currentTarget.dataset.modal.replace('modal-', '');
+            // FIX: Add guard clause to prevent error if data-modal is missing
+            const modalType = e.currentTarget.dataset.modal?.replace('modal-', '');
+            if (!modalType) return;
             openModal(modalType);
         });
     });
@@ -359,22 +361,22 @@ function renderDashboard() {
     statCurrentBalance.textContent = (totalDistributed + totalRedeemed).toLocaleString();
 
     // 2. Impact Stats
-    statCo2Saved.textContent = `${Math.floor(totalDistributed * 0.8)} kg`; // <-- UPDATED
+    statCo2Saved.textContent = `${Math.floor(totalDistributed * 0.8)} kg`;
     statItemsRecycled.textContent = state.allHistory.filter(h => h.description.toLowerCase().includes('submitted')).length;
     statEventsAttended.textContent = state.allHistory.filter(h => h.description.toLowerCase().includes('attended')).length;
 
     // 3. Analytics Charts
-    renderAnalyticsCharts(state.currentAnalyticsRange); // <-- Use stored range
+    renderAnalyticsCharts(state.currentAnalyticsRange);
     
     // 4. Activity Feed
-    const studentMap = new Map(state.allStudents.map(s => [s.student_id, s.name])); // <-- Create lookup map
+    const studentMap = new Map(state.allStudents.map(s => [s.student_id, s.name]));
     activityLogFeed.innerHTML = '';
     const feed = state.allActivity.slice(0, 50).map(log => {
         let details = '';
         if (log.details && log.details.page) details = `(Page: ${log.details.page})`;
         if (log.details && log.details.action) details = `(Action: ${log.details.action})`;
 
-        const studentName = studentMap.get(log.student_id) || log.student_id; // <-- Get name
+        const studentName = studentMap.get(log.student_id) || log.student_id;
 
         return `
             <div class="py-2 px-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
@@ -395,8 +397,45 @@ function renderAnalyticsCharts(range = 'week') {
     const textColor = isDarkMode ? '#9ca3af' : '#4b5563';
     const gridColor = isDarkMode ? '#374151' : '#e5e7eb';
 
-    // Page View Distribution
-    const pageViews = state.allActivity
+    // --- NEW: Filter activity log based on selected range ---
+    let filteredActivity = [];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    switch(range) {
+        case 'day':
+            filteredActivity = state.allActivity.filter(log => {
+                const logDate = new Date(log.created_at);
+                return logDate.toDateString() === today.toDateString();
+            });
+            break;
+        case 'month':
+            filteredActivity = state.allActivity.filter(log => {
+                const logDate = new Date(log.created_at);
+                return logDate.getFullYear() === today.getFullYear() &&
+                       logDate.getMonth() === today.getMonth();
+            });
+            break;
+        case 'year':
+            filteredActivity = state.allActivity.filter(log => {
+                const logDate = new Date(log.created_at);
+                return logDate.getFullYear() === today.getFullYear();
+            });
+            break;
+        case 'week':
+        default:
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(today.getDate() - 7);
+            filteredActivity = state.allActivity.filter(log => {
+                const logDate = new Date(log.created_at);
+                return logDate >= sevenDaysAgo && logDate <= today;
+            });
+            break;
+    }
+
+    // --- Page View Distribution (Doughnut Chart) ---
+    // UPDATED: Use filteredActivity
+    const pageViews = filteredActivity
         .filter(log => log.activity_type === 'page_view')
         .reduce((acc, log) => {
             const page = log.details.page || 'unknown';
@@ -421,28 +460,16 @@ function renderAnalyticsCharts(range = 'week') {
         }
     });
 
-    // Views Over Time (by selected range)
-    const viewsByDay = state.allActivity
-        .filter(log => log.activity_type === 'page_view')
-        .reduce((acc, log) => {
-            const day = new Date(log.created_at).toISOString().split('T')[0];
-            acc[day] = (acc[day] || 0) + 1;
-            return acc;
-        }, {});
-    
+    // --- Views Over Time (Line Chart) ---
+    // UPDATED: Use filteredActivity
     let labels, data;
-    const today = new Date();
     const getISODate = (d) => d.toISOString().split('T')[0];
     
     switch(range) {
         case 'day':
             labels = [...Array(24).keys()].map(h => `${h}:00`);
-            const viewsByHour = state.allActivity
-                .filter(log => {
-                    const logDate = new Date(log.created_at);
-                    return log.activity_type === 'page_view' && 
-                           logDate.toDateString() === today.toDateString();
-                })
+            const viewsByHour = filteredActivity
+                .filter(log => log.activity_type === 'page_view')
                 .reduce((acc, log) => {
                     const hour = new Date(log.created_at).getHours();
                     acc[hour] = (acc[hour] || 0) + 1;
@@ -457,17 +484,20 @@ function renderAnalyticsCharts(range = 'week') {
                 const d = new Date(today.getFullYear(), today.getMonth(), i + 1);
                 return getISODate(d);
             });
-            data = labels.map(day => viewsByDay[day] || 0);
+            const viewsByDayOfMonth = filteredActivity
+                .filter(log => log.activity_type === 'page_view')
+                .reduce((acc, log) => {
+                    const day = new Date(log.created_at).toISOString().split('T')[0];
+                    acc[day] = (acc[day] || 0) + 1;
+                    return acc;
+                }, {});
+            data = labels.map(day => viewsByDayOfMonth[day] || 0);
             break;
             
         case 'year':
             labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const viewsByMonth = state.allActivity
-                .filter(log => {
-                    const logDate = new Date(log.created_at);
-                    return log.activity_type === 'page_view' &&
-                           logDate.getFullYear() === today.getFullYear();
-                })
+            const viewsByMonth = filteredActivity
+                .filter(log => log.activity_type === 'page_view')
                 .reduce((acc, log) => {
                     const month = new Date(log.created_at).getMonth(); // 0-11
                     acc[month] = (acc[month] || 0) + 1;
@@ -483,13 +513,20 @@ function renderAnalyticsCharts(range = 'week') {
                 d.setDate(d.getDate() - i);
                 return getISODate(d);
             }).reverse();
-            data = labels.map(day => viewsByDay[day] || 0);
+            const viewsByDayOfWeek = filteredActivity
+                .filter(log => log.activity_type === 'page_view')
+                .reduce((acc, log) => {
+                    const day = new Date(log.created_at).toISOString().split('T')[0];
+                    acc[day] = (acc[day] || 0) + 1;
+                    return acc;
+                }, {});
+            data = labels.map(day => viewsByDayOfWeek[day] || 0);
             break;
     }
 
     if (state.viewsOverTimeChart) state.viewsOverTimeChart.destroy();
     state.viewsOverTimeChart = new Chart(viewsOverTimeCtx, {
-        type: 'line', // <-- CHANGED
+        type: 'line',
         data: {
             labels: labels,
             datasets: [{
@@ -498,7 +535,7 @@ function renderAnalyticsCharts(range = 'week') {
                 backgroundColor: isDarkMode ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
                 borderColor: '#059669',
                 borderWidth: 2,
-                tension: 0.1,
+                tension: 0.3, // <-- IMPROVED
                 fill: true
             }]
         },
@@ -633,10 +670,10 @@ async function renderStudentDetail(studentId) {
     `).join('') || '<tr><td colspan="3" class="text-center p-4">No activity logs found.</td></tr>';
     
     // Reset to first tab
-    studentTabs.forEach((t, i) => { // <-- FIX: No chaining
+    studentTabs.forEach((t, i) => {
         t.classList.toggle('active', i === 0);
     });
-    studentTabContents.forEach((c, i) => { // <-- FIX: No chaining
+    studentTabContents.forEach((c, i) => {
         c.classList.toggle('hidden', i !== 0);
     });
 }
@@ -689,7 +726,8 @@ async function renderEventDetail(eventId) {
         .order('created_at');
         
     if (error) {
-        rsvpTableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-400">Error loading RSVPs.</td></tr>';
+        console.error('Error loading RSVPs:', error);
+        rsvpTableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-400">Error loading RSVPs. Check RLS policies.</td></tr>`;
         return;
     }
     
@@ -812,7 +850,6 @@ function addCrudListeners(tableBody) {
             
             if (confirm(`Are you sure you want to delete this item? This cannot be undone.`)) {
                 try {
-                    // *** THIS IS THE CORRECTED LINE ***
                     const { error } = await supabase.from(type).delete().match({ id: id });
                     if (error) throw error;
                     showToast('Item deleted successfully!', 'success');
@@ -918,7 +955,6 @@ async function exportEventData(type) {
 
 function getFormFields(type, data = {}) {
     // Helper to get value or default
-    // FIX: Safely access data properties, even if data is null or undefined
     const val = (key, def = '') => (data ? data[key] : def) ?? def;
 
     // Helper for generating image upload field
@@ -996,6 +1032,9 @@ function getFormFields(type, data = {}) {
                 </div>
             `;
         case 'product':
+            // NEW: Handle array/json data for features and specifications
+            const featuresText = Array.isArray(val('features')) ? val('features').join('\n') : '';
+            const specsText = val('specifications') ? JSON.stringify(val('specifications'), null, 2) : '';
             return `
                 <div class="grid grid-cols-2 gap-4">
                     ${inputField('Product Name', 'name')}
@@ -1010,6 +1049,15 @@ function getFormFields(type, data = {}) {
                     ${imgField('Product Images (1st is main)', 'images', true)}
                     ${textareaField('Description', 'description')}
                     ${textareaField('Instructions', 'instructions')}
+                    
+                    <div class="col-span-2">
+                        <label class="block text-sm">Features (one per line)</label>
+                        <textarea id="form-features" rows="5" class="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600">${featuresText}</textarea>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-sm">Specifications (JSON format)</label>
+                        <textarea id="form-specifications" rows="5" class="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600">${specsText}</textarea>
+                    </div>
                 </div>
             `;
         case 'challenge':
@@ -1155,6 +1203,23 @@ async function handleFormSubmit(e) {
                 break;
             case 'product':
                 tableName = 'products';
+                
+                // Parse features (from newline text to array)
+                const featuresText = document.getElementById('form-features').value;
+                const featuresArray = featuresText.split('\n').filter(f => f.trim() !== '');
+
+                // Parse specifications (from JSON text to object)
+                const specsText = document.getElementById('form-specifications').value;
+                let specsObject = null;
+                try {
+                    specsObject = JSON.parse(specsText);
+                } catch (jsonError) {
+                    if (specsText.trim() !== '') { // Only error if text was entered
+                        throw new Error(`Specifications field contains invalid JSON: ${jsonError.message}`);
+                    }
+                    // if it's empty, we just pass null
+                }
+
                 dataObject = {
                     name: document.getElementById('form-name').value,
                     store_id: document.getElementById('form-store_id').value,
@@ -1164,6 +1229,8 @@ async function handleFormSubmit(e) {
                     images: JSON.parse(document.getElementById('form-images').value || '[]'),
                     description: document.getElementById('form-description').value,
                     instructions: document.getElementById('form-instructions').value,
+                    features: featuresArray, // NEW
+                    specifications: specsObject // NEW
                 };
                 break;
             case 'challenge':
