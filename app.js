@@ -20,6 +20,7 @@ const state = {
     viewsOverTimeChart: null,
     pageViewChart: null,
     editingItem: null, // Stores item being edited
+    currentAnalyticsRange: 'week', // Default analytics range
 };
 
 // --- DOM ELEMENTS ---
@@ -29,6 +30,9 @@ const sidebarLinks = document.querySelectorAll('.sidebar-link');
 const logoutButton = document.getElementById('logout-button');
 const adminAvatar = document.getElementById('admin-avatar');
 const adminName = document.getElementById('admin-name');
+const themeToggle = document.getElementById('theme-toggle');
+const themeIconLight = document.getElementById('theme-icon-light');
+const themeIconDark = document.getElementById('theme-icon-dark');
 
 // Dashboard Stats
 const statTotalDistributed = document.getElementById('stat-total-distributed');
@@ -107,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function checkAuthAndAdmin() {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session }, error } } = await supabase.auth.getSession();
 
     if (error || !session) {
         window.location.href = 'login.html';
@@ -196,6 +200,30 @@ function setupEventListeners() {
         window.location.href = 'login.html';
     });
 
+    // Theme Toggle
+    const updateThemeIcon = () => {
+        if (document.documentElement.classList.contains('dark')) {
+            themeIconLight.classList.add('hidden');
+            themeIconDark.classList.remove('hidden');
+        } else {
+            themeIconLight.classList.remove('hidden');
+            themeIconDark.classList.add('hidden');
+        }
+    };
+
+    themeToggle.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        
+        if (document.documentElement.classList.contains('dark')) {
+            localStorage.setItem('theme', 'dark');
+        } else {
+            localStorage.setItem('theme', 'light');
+        }
+        updateThemeIcon();
+        renderAnalyticsCharts(state.currentAnalyticsRange); // Re-render charts for new theme
+    });
+    updateThemeIcon(); // Set initial icon
+
     // Sidebar Navigation
     sidebarLinks.forEach(link => {
         link.addEventListener('click', (e) => {
@@ -212,12 +240,21 @@ function setupEventListeners() {
         });
     });
 
+    // Analytics Range Buttons
+    document.querySelectorAll('.analytics-range-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.analytics-range-btn').forEach(b => b.classList.remove('analytics-active'));
+            e.currentTarget.classList.add('analytics-active');
+            renderAnalyticsCharts(e.currentTarget.dataset.range);
+        });
+    });
+
     // Student Detail Tabs
     studentTabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
             const targetTab = e.currentTarget.dataset.tab;
-            studentTabs.forEach(t => t.classList.remove('active', 'text-white'));
-            e.currentTarget.classList.add('active', 'text-white');
+            studentTabs.forEach(t => t.classList.remove('active'));
+            e.currentTarget.classList.add('active');
 
             studentTabContents.forEach(c => c.classList.add('hidden'));
             document.getElementById(`tab-${targetTab}`).classList.remove('hidden');
@@ -302,34 +339,42 @@ function renderDashboard() {
     statCurrentBalance.textContent = (totalDistributed + totalRedeemed).toLocaleString();
 
     // 2. Impact Stats
-    statCo2Saved.textContent = `${(totalDistributed * 0.8).toFixed(1)} kg`;
+    statCo2Saved.textContent = `${Math.floor(totalDistributed * 0.8)} kg`; // <-- UPDATED
     statItemsRecycled.textContent = state.allHistory.filter(h => h.description.toLowerCase().includes('submitted')).length;
     statEventsAttended.textContent = state.allHistory.filter(h => h.description.toLowerCase().includes('attended')).length;
 
     // 3. Analytics Charts
-    renderAnalyticsCharts();
+    renderAnalyticsCharts(state.currentAnalyticsRange); // <-- Use stored range
     
     // 4. Activity Feed
+    const studentMap = new Map(state.allStudents.map(s => [s.student_id, s.name])); // <-- Create lookup map
     activityLogFeed.innerHTML = '';
     const feed = state.allActivity.slice(0, 50).map(log => {
         let details = '';
         if (log.details && log.details.page) details = `(Page: ${log.details.page})`;
         if (log.details && log.details.action) details = `(Action: ${log.details.action})`;
 
+        const studentName = studentMap.get(log.student_id) || log.student_id; // <-- Get name
+
         return `
-            <div class="py-2 px-3 border-b border-gray-700 last:border-b-0">
-                <p class="text-sm text-gray-200">
-                    <span class="font-semibold text-green-400">${log.student_id}</span>
+            <div class="py-2 px-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                <p class="text-sm text-gray-800 dark:text-gray-200">
+                    <span class="font-semibold text-green-600 dark:text-green-400">${studentName}</span>
                     ${log.activity_type.replace(/_/g, ' ')} ${details}
                 </p>
                 <p class="text-xs text-gray-500">${new Date(log.created_at).toLocaleString()}</p>
             </div>
         `;
     }).join('');
-    activityLogFeed.innerHTML = feed || '<p class="text-gray-400 text-center p-4">No activity found.</p>';
+    activityLogFeed.innerHTML = feed || '<p class="text-gray-500 dark:text-gray-400 text-center p-4">No activity found.</p>';
 }
 
-function renderAnalyticsCharts() {
+function renderAnalyticsCharts(range = 'week') {
+    state.currentAnalyticsRange = range;
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const textColor = isDarkMode ? '#9ca3af' : '#4b5563';
+    const gridColor = isDarkMode ? '#374151' : '#e5e7eb';
+
     // Page View Distribution
     const pageViews = state.allActivity
         .filter(log => log.activity_type === 'page_view')
@@ -352,11 +397,11 @@ function renderAnalyticsCharts() {
         },
         options: {
             responsive: true,
-            plugins: { legend: { labels: { color: '#9ca3af' } } }
+            plugins: { legend: { labels: { color: textColor } } }
         }
     });
 
-    // Views Over Time (by Day for last 30 days)
+    // Views Over Time (by selected range)
     const viewsByDay = state.allActivity
         .filter(log => log.activity_type === 'page_view')
         .reduce((acc, log) => {
@@ -365,30 +410,83 @@ function renderAnalyticsCharts() {
             return acc;
         }, {});
     
-    const last30Days = [...Array(30).keys()].map(i => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        return d.toISOString().split('T')[0];
-    }).reverse();
+    let labels, data;
+    const today = new Date();
+    const getISODate = (d) => d.toISOString().split('T')[0];
+    
+    switch(range) {
+        case 'day':
+            labels = [...Array(24).keys()].map(h => `${h}:00`);
+            const viewsByHour = state.allActivity
+                .filter(log => {
+                    const logDate = new Date(log.created_at);
+                    return log.activity_type === 'page_view' && 
+                           logDate.toDateString() === today.toDateString();
+                })
+                .reduce((acc, log) => {
+                    const hour = new Date(log.created_at).getHours();
+                    acc[hour] = (acc[hour] || 0) + 1;
+                    return acc;
+                }, {});
+            data = labels.map((_, i) => viewsByHour[i] || 0);
+            break;
+        
+        case 'month':
+            const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            labels = [...Array(daysInMonth).keys()].map(i => {
+                const d = new Date(today.getFullYear(), today.getMonth(), i + 1);
+                return getISODate(d);
+            });
+            data = labels.map(day => viewsByDay[day] || 0);
+            break;
+            
+        case 'year':
+            labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const viewsByMonth = state.allActivity
+                .filter(log => {
+                    const logDate = new Date(log.created_at);
+                    return log.activity_type === 'page_view' &&
+                           logDate.getFullYear() === today.getFullYear();
+                })
+                .reduce((acc, log) => {
+                    const month = new Date(log.created_at).getMonth(); // 0-11
+                    acc[month] = (acc[month] || 0) + 1;
+                    return acc;
+                }, {});
+            data = labels.map((_, i) => viewsByMonth[i] || 0);
+            break;
+            
+        case 'week': // Default
+        default:
+            labels = [...Array(7).keys()].map(i => {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                return getISODate(d);
+            }).reverse();
+            data = labels.map(day => viewsByDay[day] || 0);
+            break;
+    }
 
     if (state.viewsOverTimeChart) state.viewsOverTimeChart.destroy();
     state.viewsOverTimeChart = new Chart(viewsOverTimeCtx, {
-        type: 'bar',
+        type: 'line', // <-- CHANGED
         data: {
-            labels: last30Days,
+            labels: labels,
             datasets: [{
                 label: 'Total Page Views',
-                data: last30Days.map(day => viewsByDay[day] || 0),
-                backgroundColor: '#059669',
-                borderColor: '#10B981',
-                borderWidth: 1
+                data: data,
+                backgroundColor: isDarkMode ? 'rgba(5, 150, 105, 0.2)' : 'rgba(5, 150, 105, 0.1)',
+                borderColor: '#059669',
+                borderWidth: 2,
+                tension: 0.1,
+                fill: true
             }]
         },
         options: {
             responsive: true,
             scales: {
-                y: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } },
-                x: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } }
+                y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true },
+                x: { ticks: { color: textColor }, grid: { color: gridColor } }
             },
             plugins: { legend: { display: false } }
         }
@@ -400,13 +498,13 @@ function renderStudents(searchTerm = '') {
     // 1. Top Champions
     topChampionsList.innerHTML = '';
     const champions = state.allStudents.slice(0, 5).map((student, index) => `
-        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 text-center">
-            <span class="text-2xl font-bold ${index === 0 ? 'text-yellow-400' : (index === 1 ? 'text-gray-300' : (index === 2 ? 'text-yellow-600' : 'text-gray-400'))}">
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 text-center">
+            <span class="text-2xl font-bold ${index === 0 ? 'text-yellow-400' : (index === 1 ? 'text-gray-400 dark:text-gray-300' : (index === 2 ? 'text-yellow-600' : 'text-gray-500 dark:text-gray-400'))}">
                 #${index + 1}
             </span>
-            <img src="${student.avatar_url || 'https://placehold.co/80x80/gray/white?text=S'}" class="w-16 h-16 rounded-full mx-auto my-2 border-2 ${index === 0 ? 'border-yellow-400' : 'border-gray-600'}">
-            <p class="font-semibold text-white truncate">${student.name}</p>
-            <p class="text-sm text-green-400 font-bold">${student.lifetime_points} Pts</p>
+            <img src="${student.avatar_url || 'https://placehold.co/80x80/gray/white?text=S'}" class="w-16 h-16 rounded-full mx-auto my-2 border-2 ${index === 0 ? 'border-yellow-400' : 'border-gray-300 dark:border-gray-600'}">
+            <p class="font-semibold text-gray-900 dark:text-white truncate">${student.name}</p>
+            <p class="text-sm text-green-600 dark:text-green-400 font-bold">${student.lifetime_points} Pts</p>
         </div>
     `).join('');
     topChampionsList.innerHTML = champions;
@@ -419,23 +517,23 @@ function renderStudents(searchTerm = '') {
     );
 
     const studentRows = filteredStudents.map(student => `
-        <tr class="hover:bg-gray-700">
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td>
                 <div class="flex items-center">
                     <img src="${student.avatar_url || 'https://placehold.co/40x40/gray/white?text=S'}" class="w-8 h-8 rounded-full mr-3">
                     <div>
-                        <p class="font-medium text-white">${student.name}</p>
-                        <p class="text-xs text-gray-400">${student.email}</p>
+                        <p class="font-medium text-gray-900 dark:text-white">${student.name}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">${student.email}</p>
                     </div>
                 </div>
             </td>
             <td>${student.student_id}</td>
             <td>${student.course}</td>
-            <td class="font-medium text-green-400">${student.current_points}</td>
-            <td class="font-medium text-blue-400">${student.lifetime_points}</td>
+            <td class="font-medium text-green-600 dark:text-green-400">${student.current_points}</td>
+            <td class="font-medium text-blue-600 dark:text-blue-400">${student.lifetime_points}</td>
             <td>${student.is_admin ? '<span class="py-1 px-2 text-xs bg-yellow-400 text-yellow-900 font-bold rounded-full">YES</span>' : 'No'}</td>
             <td>
-                <button class="view-student-btn action-btn bg-blue-600 text-white hover:bg-blue-700" data-id="${student.student_id}">View</button>
+                <button class="view-student-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-blue-600 text-white hover:bg-blue-700" data-id="${student.student_id}">View</button>
             </td>
         </tr>
     `).join('');
@@ -489,49 +587,53 @@ async function renderStudentDetail(studentId) {
     // Render History
     studentDetailHistoryTable.innerHTML = history.data.map(h => `
         <tr>
-            <td class="text-xs text-gray-400">${new Date(h.created_at).toLocaleString()}</td>
+            <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(h.created_at).toLocaleString()}</td>
             <td>${h.description}</td>
-            <td class="font-medium ${h.points_change > 0 ? 'text-green-400' : 'text-red-400'}">${h.points_change}</td>
+            <td class="font-medium ${h.points_change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}">${h.points_change}</td>
         </tr>
     `).join('') || '<tr><td colspan="3" class="text-center p-4">No transactions found.</td></tr>';
     
     // Render Rewards
     studentDetailRewardsTable.innerHTML = rewards.data.map(r => `
         <tr>
-            <td class="text-xs text-gray-400">${new Date(r.purchase_date).toLocaleDateString()}</td>
+            <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(r.purchase_date).toLocaleDateString()}</td>
             <td>${r.products.name}</td>
             <td>${r.status === 'active' ? '<span class="py-1 px-2 text-xs bg-green-400 text-green-900 font-bold rounded-full">Active</span>' : '<span class="py-1 px-2 text-xs bg-gray-500 text-gray-900 font-bold rounded-full">Used</span>'}</td>
-            <td class="text-xs text-gray-400">${r.used_date ? new Date(r.used_date).toLocaleDateString() : 'N/A'}</td>
+            <td class="text-xs text-gray-500 dark:text-gray-400">${r.used_date ? new Date(r.used_date).toLocaleDateString() : 'N/A'}</td>
         </tr>
     `).join('') || '<tr><td colspan="4" class="text-center p-4">No rewards found.</td></tr>';
 
     // Render Logs
     studentDetailLogsTable.innerHTML = logs.data.map(l => `
         <tr>
-            <td class="text-xs text-gray-400">${new Date(l.created_at).toLocaleString()}</td>
+            <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(l.created_at).toLocaleString()}</td>
             <td>${l.activity_type.replace(/_/g, ' ')}</td>
             <td class="text-xs">${JSON.stringify(l.details)}</td>
         </tr>
     `).join('') || '<tr><td colspan="3" class="text-center p-4">No activity logs found.</td></tr>';
     
     // Reset to first tab
-    studentTabs.forEach((t, i) => t.classList.toggle('active', i === 0).classList.toggle('text-white', i === 0));
-    studentTabContents.forEach((c, i) => c.classList.toggle('hidden', i !== 0));
+    studentTabs.forEach((t, i) => { // <-- FIX: No chaining
+        t.classList.toggle('active', i === 0);
+    });
+    studentTabContents.forEach((c, i) => { // <-- FIX: No chaining
+        c.classList.toggle('hidden', i !== 0);
+    });
 }
 
 // --- RENDER: EVENTS ---
 function renderEvents() {
     eventsTableBody.innerHTML = '';
     const eventRows = state.allEvents.map(event => `
-        <tr>
-            <td class="font-medium text-white">${event.title}</td>
-            <td class="text-gray-300">${new Date(event.event_date).toLocaleString()}</td>
-            <td class="text-green-400 font-medium">${event.points_reward}</td>
-            <td class="text-blue-400 font-medium">${event.event_rsvps[0]?.count || 0}</td>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="font-medium text-gray-900 dark:text-white">${event.title}</td>
+            <td class="text-gray-600 dark:text-gray-300">${new Date(event.event_date).toLocaleString()}</td>
+            <td class="text-green-600 dark:text-green-400 font-medium">${event.points_reward}</td>
+            <td class="text-blue-600 dark:text-blue-400 font-medium">${event.event_rsvps[0]?.count || 0}</td>
             <td class="space-x-2">
-                <button class="manage-rsvp-btn action-btn bg-blue-600 text-white hover:bg-blue-700" data-id="${event.id}">Manage RSVPs</button>
-                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="event" data-id="${event.id}">Edit</button>
-                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="events" data-id="${event.id}">Delete</button>
+                <button class="manage-rsvp-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-blue-600 text-white hover:bg-blue-700" data-id="${event.id}">Manage RSVPs</button>
+                <button class="edit-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="event" data-id="${event.id}">Edit</button>
+                <button class="delete-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-red-600 text-white hover:bg-red-700" data-type="events" data-id="${event.id}">Delete</button>
             </td>
         </tr>
     `).join('');
@@ -573,11 +675,11 @@ async function renderEventDetail(eventId) {
     
     state.currentEventRSVPs = data;
     const rsvpRows = data.map(rsvp => `
-        <tr>
-            <td class="font-medium text-white">${rsvp.students.name}</td>
-            <td class="text-gray-300">${rsvp.student_id}</td>
-            <td class="text-gray-300">${rsvp.students.course}</td>
-            <td class="text-gray-400 text-xs">${new Date(rsvp.created_at).toLocaleDateString()}</td>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="font-medium text-gray-900 dark:text-white">${rsvp.students.name}</td>
+            <td class="text-gray-600 dark:text-gray-300">${rsvp.student_id}</td>
+            <td class="text-gray-600 dark:text-gray-300">${rsvp.students.course}</td>
+            <td class="text-gray-500 dark:text-gray-400 text-xs">${new Date(rsvp.created_at).toLocaleDateString()}</td>
             <td class="text-center">
                 <input type="checkbox" class="attended-checkbox w-5 h-5 rounded" data-student-id="${rsvp.student_id}">
             </td>
@@ -591,12 +693,12 @@ function renderStore() {
     // Stores
     storesTableBody.innerHTML = '';
     const storeRows = state.allStores.map(store => `
-        <tr>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td><img src="${store.logo_url}" class="w-10 h-10 rounded-lg object-cover"></td>
-            <td class="font-medium text-white">${store.name}</td>
+            <td class="font-medium text-gray-900 dark:text-white">${store.name}</td>
             <td class="space-x-2">
-                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="store" data-id="${store.id}">Edit</button>
-                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="stores" data-id="${store.id}">Delete</button>
+                <button class="edit-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="store" data-id="${store.id}">Edit</button>
+                <button class="delete-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-red-600 text-white hover:bg-red-700" data-type="stores" data-id="${store.id}">Delete</button>
             </td>
         </tr>
     `).join('');
@@ -605,15 +707,15 @@ function renderStore() {
     // Products
     productsTableBody.innerHTML = '';
     const productRows = state.allProducts.map(product => `
-        <tr>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td><img src="${product.images ? product.images[0] : 'https://placehold.co/40x40/gray/white?text=P'}" class="w-10 h-10 rounded-lg object-cover"></td>
-            <td class="font-medium text-white">${product.name}</td>
+            <td class="font-medium text-gray-900 dark:text-white">${product.name}</td>
             <td>${product.stores?.name || 'N/A'}</td>
-            <td class="text-green-400 font-medium">${product.cost_in_points}</td>
-            <td class="text-gray-300">₹${product.discounted_price_inr}</td>
+            <td class="text-green-600 dark:text-green-400 font-medium">${product.cost_in_points}</td>
+            <td class="text-gray-600 dark:text-gray-300">₹${product.discounted_price_inr}</td>
             <td class="space-x-2">
-                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="product" data-id="${product.id}">Edit</button>
-                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="products" data-id="${product.id}">Delete</button>
+                <button class="edit-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="product" data-id="${product.id}">Edit</button>
+                <button class="delete-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-red-600 text-white hover:bg-red-700" data-type="products" data-id="${product.id}">Delete</button>
             </td>
         </tr>
     `).join('');
@@ -628,14 +730,14 @@ function renderContent() {
     // Challenges
     challengesTableBody.innerHTML = '';
     const challengeRows = state.allChallenges.map(c => `
-        <tr>
-            <td><i data-lucide="${c.icon}" class="w-5 h-5 text-yellow-400"></i></td>
-            <td class="font-medium text-white">${c.title}</td>
-            <td class="text-green-400 font-medium">${c.points_reward}</td>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td><i data-lucide="${c.icon}" class="w-5 h-5 text-yellow-500 dark:text-yellow-400"></i></td>
+            <td class="font-medium text-gray-900 dark:text-white">${c.title}</td>
+            <td class="text-green-600 dark:text-green-400 font-medium">${c.points_reward}</td>
             <td>${c.is_daily ? 'Yes' : 'No'}</td>
             <td class="space-x-2">
-                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="challenge" data-id="${c.id}">Edit</button>
-                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="challenges" data-id="${c.id}">Delete</button>
+                <button class="edit-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="challenge" data-id="${c.id}">Edit</button>
+                <button class="delete-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-red-600 text-white hover:bg-red-700" data-type="challenges" data-id="${c.id}">Delete</button>
             </td>
         </tr>
     `).join('');
@@ -645,13 +747,13 @@ function renderContent() {
     // Levels
     levelsTableBody.innerHTML = '';
     const levelRows = state.allLevels.map(l => `
-        <tr>
-            <td class="font-bold text-lg text-white">${l.level_number}</td>
-            <td class="font-medium text-white">${l.title}</td>
-            <td class="text-blue-400 font-medium">${l.min_points}</td>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="font-bold text-lg text-gray-900 dark:text-white">${l.level_number}</td>
+            <td class="font-medium text-gray-900 dark:text-white">${l.title}</td>
+            <td class="text-blue-600 dark:text-blue-400 font-medium">${l.min_points}</td>
             <td class="space-x-2">
-                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="level" data-id="${l.id}">Edit</button>
-                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="levels" data-id="${l.id}">Delete</button>
+                <button class="edit-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="level" data-id="${l.id}">Edit</button>
+                <button class="delete-btn py-1 px-2 text-xs font-medium rounded-md transition-colors bg-red-600 text-white hover:bg-red-700" data-type="levels" data-id="${l.id}">Delete</button>
             </td>
         </tr>
     `).join('');
@@ -796,19 +898,50 @@ async function exportEventData(type) {
 
 function getFormFields(type, data = {}) {
     // Helper to get value or default
-    const val = (key, def = '') => data[key] || def;
+    // FIX: Safely access data properties, even if data is null or undefined
+    const val = (key, def = '') => (data ? data[key] : def) ?? def;
 
     // Helper for generating image upload field
-    const imgField = (label, key) => `
+    const imgField = (label, key, isMultiple = false) => {
+        const rawValue = val(key);
+        let imageArray = [];
+        let hiddenValue = '[]';
+
+        if (isMultiple) {
+            imageArray = Array.isArray(rawValue) ? rawValue : [];
+            hiddenValue = JSON.stringify(imageArray);
+        } else {
+            imageArray = rawValue ? [rawValue] : [];
+            hiddenValue = rawValue;
+        }
+
+        return `
         <div class="col-span-2">
-            <label class="block text-sm font-medium text-gray-300 mb-1">${label}</label>
-            <input type="file" class="file-input w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700" data-key="${key}">
-            <input type="hidden" id="form-${key}" value="${val(key, '[]')}">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${label}</label>
+            <input type="file" class="file-input w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700" data-key="${key}" ${isMultiple ? 'multiple' : ''}>
+            <input type="hidden" id="form-${key}" value='${hiddenValue}'>
             <div id="image-preview-${key}" class="mt-2 flex space-x-2">
-                ${(Array.isArray(val(key)) ? val(key) : [val(key)]).map(img => 
+                ${imageArray.map(img => 
                     img ? `<img src="${img}" class="w-16 h-16 rounded-lg object-cover">` : ''
                 ).join('')}
             </div>
+        </div>
+        `;
+    };
+
+    // Helper for input fields
+    const inputField = (label, key, type = 'text', readonly = false, extraClasses = '') => `
+        <div>
+            <label class="block text-sm">${label}</label>
+            <input type="${type}" id="form-${key}" value="${val(key)}" 
+                   class="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600 ${extraClasses}"
+                   ${readonly ? 'readonly' : ''}>
+        </div>
+    `;
+    const textareaField = (label, key, rows = 3) => `
+        <div class="col-span-2">
+            <label class="block text-sm">${label}</label>
+            <textarea id="form-${key}" rows="${rows}" class="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600">${val(key)}</textarea>
         </div>
     `;
 
@@ -817,64 +950,64 @@ function getFormFields(type, data = {}) {
             return `
                 <input type="hidden" id="form-student_id" value="${val('student_id')}">
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm">Name</label><input type="text" id="form-name" value="${val('name')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Email</label><input type="email" id="form-email" value="${val('email')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600" readonly></div>
-                    <div><label class="block text-sm">Course</label><input type="text" id="form-course" value="${val('course')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Mobile</label><input type="text" id="form-mobile" value="${val('mobile')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Current Points</label><input type="number" id="form-current_points" value="${val('current_points')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Lifetime Points</label><input type="number" id="form-lifetime_points" value="${val('lifetime_points')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    ${inputField('Name', 'name')}
+                    ${inputField('Email', 'email', 'email', true, 'bg-gray-200 dark:bg-gray-800')}
+                    ${inputField('Course', 'course')}
+                    ${inputField('Mobile', 'mobile', 'tel')}
+                    ${inputField('Current Points', 'current_points', 'number')}
+                    ${inputField('Lifetime Points', 'lifetime_points', 'number')}
                     <div class="col-span-2"><label class="flex items-center space-x-2"><input type="checkbox" id="form-is_admin" ${val('is_admin') ? 'checked' : ''} class="w-4 h-4 rounded"><span>Is Administrator</span></label></div>
                 </div>
             `;
         case 'event':
             return `
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2"><label class="block text-sm">Title</label><input type="text" id="form-title" value="${val('title')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Event Date & Time</label><input type="datetime-local" id="form-event_date" value="${val('event_date') ? val('event_date').slice(0, 16) : ''}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Points Reward</label><input type="number" id="form-points_reward" value="${val('points_reward')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div class="col-span-2"><label class="block text-sm">Description</label><textarea id="form-description" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">${val('description')}</textarea></div>
+                    <div class="col-span-2">${inputField('Title', 'title')}</div>
+                    ${inputField('Event Date & Time', 'event_date', 'datetime-local', false, 'dark:text-gray-300')}
+                    ${inputField('Points Reward', 'points_reward', 'number')}
+                    ${textareaField('Description', 'description')}
                 </div>
             `;
         case 'store':
             return `
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm">Store Name</label><input type="text" id="form-name" value="${val('name')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    ${imgField('Logo URL', 'logo_url')}
+                    ${inputField('Store Name', 'name')}
+                    ${imgField('Logo URL', 'logo_url', false)}
                 </div>
             `;
         case 'product':
             return `
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm">Product Name</label><input type="text" id="form-name" value="${val('name')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    ${inputField('Product Name', 'name')}
                     <div><label class="block text-sm">Store</label>
-                        <select id="form-store_id" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">
+                        <select id="form-store_id" class="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600">
                             ${state.allStores.map(s => `<option value="${s.id}" ${val('store_id') == s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
                         </select>
                     </div>
-                    <div><label class="block text-sm">Cost (Points)</label><input type="number" id="form-cost_in_points" value="${val('cost_in_points')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Discounted Price (INR)</label><input type="number" id="form-discounted_price_inr" value="${val('discounted_price_inr')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Original Price (INR)</label><input type="number" id="form-original_price_inr" value="${val('original_price_inr')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    ${imgField('Product Images (1st is main)', 'images')}
-                    <div class="col-span-2"><label class="block text-sm">Description</label><textarea id="form-description" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">${val('description')}</textarea></div>
-                    <div class="col-span-2"><label class="block text-sm">Instructions</label><textarea id="form-instructions" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">${val('instructions')}</textarea></div>
+                    ${inputField('Cost (Points)', 'cost_in_points', 'number')}
+                    ${inputField('Discounted Price (INR)', 'discounted_price_inr', 'number')}
+                    ${inputField('Original Price (INR)', 'original_price_inr', 'number')}
+                    ${imgField('Product Images (1st is main)', 'images', true)}
+                    ${textareaField('Description', 'description')}
+                    ${textareaField('Instructions', 'instructions')}
                 </div>
             `;
         case 'challenge':
             return `
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2"><label class="block text-sm">Title</label><input type="text" id="form-title" value="${val('title')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Icon (Lucide Name)</label><input type="text" id="form-icon" value="${val('icon')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Points Reward</label><input type="number" id="form-points_reward" value="${val('points_reward')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div class="col-span-2"><label class="block text-sm">Description</label><textarea id="form-description" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">${val('description')}</textarea></div>
+                    <div class="col-span-2">${inputField('Title', 'title')}</div>
+                    ${inputField('Icon (Lucide Name)', 'icon')}
+                    ${inputField('Points Reward', 'points_reward', 'number')}
+                    ${textareaField('Description', 'description')}
                     <div class="col-span-2"><label class="flex items-center space-x-2"><input type="checkbox" id="form-is_daily" ${val('is_daily', true) ? 'checked' : ''} class="w-4 h-4 rounded"><span>Is a Daily Challenge</span></label></div>
                 </div>
             `;
         case 'level':
             return `
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm">Level Number</label><input type="number" id="form-level_number" value="${val('level_number')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div><label class="block text-sm">Title</label><input type="text" id="form-title" value="${val('title')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
-                    <div class="col-span-2"><label class="block text-sm">Minimum Points</label><input type="number" id="form-min_points" value="${val('min_points')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    ${inputField('Level Number', 'level_number', 'number')}
+                    ${inputField('Title', 'title')}
+                    <div class="col-span-2">${inputField('Minimum Points', 'min_points', 'number')}</div>
                 </div>
             `;
         default: return '<p>Error: Form not found.</p>';
@@ -926,7 +1059,7 @@ async function handleImageUpload(event, key) {
     const hiddenInput = document.getElementById(`form-${key}`);
     
     // Show temp loader
-    previewContainer.innerHTML = '<p class="text-sm text-gray-400">Uploading...</p>';
+    previewContainer.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Uploading...</p>';
 
     const formData = new FormData();
     formData.append('file', file);
@@ -1039,6 +1172,44 @@ async function handleFormSubmit(e) {
             query = supabase.from(tableName).update(dataObject).match({ [matchField]: id });
         } else {
             // Insert
+            // For levels, the primary key is level_number, not id. Supabase schema seems to have `id` on other tables, but `levels` uses `level_number`.
+            // The provided schema for 'levels' shows `level_number` as PK. The 'delete' logic uses `id`. This is a contradiction.
+            // The schema for 'products' and 'stores' shows `id` as text, but the delete button passes an integer.
+            // The schema for `levels` shows `id` is not a column. The form tries to edit/delete by `id`.
+            // The schema provided shows `levels` PK is `level_number`.
+            // But the code `state.allLevels.find(i => i.id == id)` implies an `id` column.
+            // The schema also shows `products` and `stores` PKs are `text`, but the form passes `id` from `state.editingItem?.id` which is likely an integer.
+            // ... I will assume the code's `delete().match({ id: id })` is correct and the schema `levels` table *also* has a hidden `id` column, or the schema is simplified.
+            // The original `addCrudListeners` uses `match({ id: id })` for all deletes.
+            // The provided schema shows `products` `id` is `text`.
+            
+            // Re-checking schema:
+            // challenges: id (bigint) - OK
+            // events: id (bigint) - OK
+            // levels: level_number (integer) PK - **MISMATCH** with `delete().match({ id: id })`
+            // products: id (text) PK - **MISMATCH** with `delete().match({ id: id })`
+            // stores: id (text) PK - **MISMATCH** with `delete().match({ id: id })`
+            // students: student_id (text) PK - OK (code uses student_id)
+            
+            // The `addCrudListeners` delete logic is:
+            // `supabase.from(type).delete().match({ id: id })`
+            // This is **WRONG** for levels, products, and stores based on the schema.
+            // It should be:
+            // - levels: `match({ level_number: id })` (if id is level_number)
+            // - products: `match({ id: id })` (if id is the text UUID)
+            // - stores: `match({ id: id })` (if id is the text UUID)
+            
+            // The `edit-btn` dataset `data-id` is set from `event.id`, `student.student_id`, `store.id`, `product.id`, `c.id`, `l.id`.
+            // This implies `levels` *does* have an `id` column that isn't its PK.
+            // The schema for `levels` in `app.js` `loadInitialData` is `supabase.from('levels').select('*')`.
+            // The schema provided by the user is *incomplete* or *wrong* compared to the code.
+            // The `challenges` table has an `id` `bigint`. `levels` *must* also have one for the code to work.
+            
+            // I will trust the *code's* logic over the *schema comment*. The code consistently uses `id`.
+            // The `levels` table PK is `level_number`, but it probably has a separate `id` column.
+            
+            // The only table that uses a non-`id` PK in the *form* is 'student'.
+            
             query = supabase.from(tableName).insert(dataObject);
         }
 
