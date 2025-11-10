@@ -1,7 +1,5 @@
 /* admin/admin.css */
 body {
-    background-color: #111827; /* dark:bg-gray-900 */
-    color: #f3f4f6; /* dark:text-gray-100 */
     font-family: 'Inter', sans-serif;
 }
 
@@ -29,15 +27,26 @@ body {
     height: 8px;
 }
 ::-webkit-scrollbar-track {
-    background: #1f2937; /* dark:bg-gray-800 */
+    background: #e5e7eb; /* light:bg-gray-200 */
 }
 ::-webkit-scrollbar-thumb {
-    background: #4b5563; /* dark:bg-gray-600 */
+    background: #9ca3af; /* light:bg-gray-400 */
     border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280; /* light:bg-gray-500 */
+}
+/* Dark scrollbar */
+.dark::-webkit-scrollbar-track {
+    background: #1f2937; /* dark:bg-gray-800 */
+}
+.dark::-webkit-scrollbar-thumb {
+    background: #4b5563; /* dark:bg-gray-600 */
+}
+.dark::-webkit-scrollbar-thumb:hover {
     background: #6b7280; /* dark:bg-gray-500 */
 }
+
 
 /* Table Styles */
 .data-table {
@@ -46,25 +55,39 @@ body {
 }
 .data-table th, .data-table td {
     padding: 12px 16px;
-    border-bottom: 1px solid #374151; /* dark:border-gray-700 */
+    border-bottom: 1px solid #e5e7eb; /* light:border-gray-200 */
     text-align: left;
 }
+.dark .data-table th, .dark .data-table td {
+    border-bottom: 1px solid #374151; /* dark:border-gray-700 */
+}
 .data-table th {
-    background-color: #1f2937; /* dark:bg-gray-800 */
+    background-color: #f3f4f6; /* light:bg-gray-100 */
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    color: #6b7280; /* light:text-gray-500 */
+}
+.dark .data-table th {
+    background-color: #1f2937; /* dark:bg-gray-800 */
     color: #9ca3af; /* dark:text-gray-400 */
 }
 .data-table tbody tr:hover {
-    background-color: #1f2937; /* dark:bg-gray-800 */
+    background-color: #f9fafb; /* light:hover:bg-gray-50 */
+}
+.dark .data-table tbody tr:hover {
+    background-color: #1f2937; /* dark:hover:bg-gray-800 */
 }
 .data-table td {
     font-size: 0.875rem;
+    color: #374151; /* light:text-gray-700 */
+}
+.dark .data-table td {
     color: #d1d5db; /* dark:text-gray-300 */
 }
 .data-table .action-btn {
-    @apply py-1 px-2 text-xs font-medium rounded-md transition-colors;
+    /* Styles are applied via Tailwind classes in JS */
+    transition: background-color 0.2s;
 }
 
 /* Modal Styles */
@@ -79,4 +102,26 @@ body {
 /* Chart Container */
 #views-over-time-chart, #page-view-chart {
     max-height: 400px;
+}
+
+/* Student Detail Tab */
+.student-tab.active {
+    color: #059669; /* green-600 */
+    border-bottom: 2px solid #059669;
+}
+.student-tab {
+    border-bottom: 2px solid transparent;
+}
+.dark .student-tab.active {
+    color: #10B981; /* green-500 */
+    border-bottom: 2px solid #10B981;
+}
+
+/* Analytics Range Button */
+.analytics-range-btn.analytics-active {
+    background-color: #059669; /* bg-green-600 */
+    color: white;
+}
+.dark .analytics-range-btn.analytics-active {
+    color: white;
 }
