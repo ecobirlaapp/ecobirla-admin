@@ -690,7 +690,8 @@ function addCrudListeners(tableBody) {
             
             if (confirm(`Are you sure you want to delete this item? This cannot be undone.`)) {
                 try {
-                    const { error }_ = await supabase.from(type).delete().match({ id: id });
+                    // *** THIS IS THE CORRECTED LINE ***
+                    const { error } = await supabase.from(type).delete().match({ id: id });
                     if (error) throw error;
                     showToast('Item deleted successfully!', 'success');
                     await loadInitialData(); // Reload all data
