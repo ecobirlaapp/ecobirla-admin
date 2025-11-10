@@ -277,7 +277,9 @@ function setupEventListeners() {
             e.currentTarget.classList.add('active');
 
             studentTabContents.forEach(c => c.classList.add('hidden'));
-            document.getElementById(`tab-${targetTab}`).classList.remove('hidden');
+            // FIX: Add null check for tab content
+            const content = document.getElementById(`tab-${targetTab}`);
+            if (content) content.classList.remove('hidden');
         });
     });
     
@@ -400,35 +402,39 @@ function renderAnalyticsCharts(range = 'week') {
     // --- NEW: Filter activity log based on selected range ---
     let filteredActivity = [];
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    today.setHours(23, 59, 59, 999); // Set to end of today
 
     switch(range) {
         case 'day':
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
             filteredActivity = state.allActivity.filter(log => {
                 const logDate = new Date(log.created_at);
-                return logDate.toDateString() === today.toDateString();
+                return logDate >= startOfDay && logDate <= today;
             });
             break;
         case 'month':
+             const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
             filteredActivity = state.allActivity.filter(log => {
                 const logDate = new Date(log.created_at);
-                return logDate.getFullYear() === today.getFullYear() &&
-                       logDate.getMonth() === today.getMonth();
+                return logDate >= startOfMonth && logDate <= today;
             });
             break;
         case 'year':
+            const startOfYear = new Date(today.getFullYear(), 0, 1);
             filteredActivity = state.allActivity.filter(log => {
                 const logDate = new Date(log.created_at);
-                return logDate.getFullYear() === today.getFullYear();
+                return logDate >= startOfYear && logDate <= today;
             });
             break;
         case 'week':
         default:
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(today.getDate() - 7);
+            const startOfWeek = new Date();
+            startOfWeek.setDate(today.getDate() - 6);
+            startOfWeek.setHours(0, 0, 0, 0);
             filteredActivity = state.allActivity.filter(log => {
                 const logDate = new Date(log.created_at);
-                return logDate >= sevenDaysAgo && logDate <= today;
+                return logDate >= startOfWeek && logDate <= today;
             });
             break;
     }
@@ -642,7 +648,7 @@ async function renderStudentDetail(studentId) {
     ]);
     
     // Render History
-    studentDetailHistoryTable.innerHTML = history.data.map(h => `
+    studentDetailHistoryTable.innerHTML = (history.data || []).map(h => `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(h.created_at).toLocaleString()}</td>
             <td>${h.description}</td>
@@ -651,7 +657,7 @@ async function renderStudentDetail(studentId) {
     `).join('') || '<tr><td colspan="3" class="text-center p-4">No transactions found.</td></tr>';
     
     // Render Rewards
-    studentDetailRewardsTable.innerHTML = rewards.data.map(r => `
+    studentDetailRewardsTable.innerHTML = (rewards.data || []).map(r => `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(r.purchase_date).toLocaleDateString()}</td>
             <td>${r.products.name}</td>
@@ -661,7 +667,7 @@ async function renderStudentDetail(studentId) {
     `).join('') || '<tr><td colspan="4" class="text-center p-4">No rewards found.</td></tr>';
 
     // Render Logs
-    studentDetailLogsTable.innerHTML = logs.data.map(l => `
+    studentDetailLogsTable.innerHTML = (logs.data || []).map(l => `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(l.created_at).toLocaleString()}</td>
             <td>${l.activity_type.replace(/_/g, ' ')}</td>
@@ -722,8 +728,8 @@ async function renderEventDetail(eventId) {
     const { data, error } = await supabase
         .from('event_rsvps')
         .select('*, students(*)')
-        .eq('event_id', eventId)
-        .order('created_at');
+        .eq('event_id', eventId);
+        // .order('created_at'); // <-- FIX: Removed this line
         
     if (error) {
         console.error('Error loading RSVPs:', error);
@@ -953,6 +959,65 @@ async function exportEventData(type) {
 
 // --- MODAL & FORM LOGIC ---
 
+// NEW: Helper function for product modal listeners
+function setupProductModalListeners() {
+    const addFeatureBtn = document.getElementById('add-feature-btn');
+    const featureInput = document.getElementById('form-feature-input');
+    const featureContainer = document.getElementById('feature-tags-container');
+
+    const addSpecBtn = document.getElementById('add-spec-btn');
+    const specContainer = document.getElementById('spec-pairs-container');
+
+    // --- Features ---
+    const addFeatureTag = (feature) => {
+        if (!feature.trim()) return;
+        const tag = document.createElement('span');
+        tag.className = "feature-tag bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100 text-sm px-3 py-1 rounded-full flex items-center";
+        tag.innerHTML = `
+            <span class="feature-value">${feature}</span>
+            <button type="button" class="remove-tag-btn ml-2 text-blue-600 dark:text-blue-300">&times;</button>
+        `;
+        tag.querySelector('.remove-tag-btn').addEventListener('click', () => tag.remove());
+        featureContainer.appendChild(tag);
+    };
+
+    if (addFeatureBtn) {
+        addFeatureBtn.addEventListener('click', () => {
+            addFeatureTag(featureInput.value);
+            featureInput.value = '';
+        });
+    }
+    // Add listener to existing tags
+    if (featureContainer) {
+        featureContainer.querySelectorAll('.remove-tag-btn').forEach(btn => {
+            btn.addEventListener('click', () => btn.closest('.feature-tag').remove());
+        });
+    }
+
+    // --- Specifications ---
+    const addSpecPair = (key = '', value = '') => {
+        const pair = document.createElement('div');
+        pair.className = "spec-pair flex space-x-2";
+        pair.innerHTML = `
+            <input type="text" class="spec-key w-1/3 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600" value="${key}" placeholder="e.g. Color">
+            <input type="text" class="spec-value w-2/3 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600" value="${value}" placeholder="e.g. Red">
+            <button type="button" class="remove-pair-btn bg-red-600 text-white px-3 py-1 rounded-lg text-sm">-</button>
+        `;
+        pair.querySelector('.remove-pair-btn').addEventListener('click', () => pair.remove());
+        specContainer.appendChild(pair);
+    };
+    
+    if (addSpecBtn) {
+        addSpecBtn.addEventListener('click', () => addSpecPair());
+    }
+    // Add listener to existing pairs
+    if (specContainer) {
+        specContainer.querySelectorAll('.remove-pair-btn').forEach(btn => {
+            btn.addEventListener('click', () => btn.closest('.spec-pair').remove());
+        });
+    }
+}
+
 function getFormFields(type, data = {}) {
     // Helper to get value or default
     const val = (key, def = '') => (data ? data[key] : def) ?? def;
@@ -968,7 +1033,7 @@ function getFormFields(type, data = {}) {
             hiddenValue = JSON.stringify(imageArray);
         } else {
             imageArray = rawValue ? [rawValue] : [];
-            hiddenValue = rawValue;
+            hiddenValue = rawValue || ''; // Store single URL as string
         }
 
         return `
@@ -1032,9 +1097,9 @@ function getFormFields(type, data = {}) {
                 </div>
             `;
         case 'product':
-            // NEW: Handle array/json data for features and specifications
-            const featuresText = Array.isArray(val('features')) ? val('features').join('\n') : '';
-            const specsText = val('specifications') ? JSON.stringify(val('specifications'), null, 2) : '';
+            const features = val('features', []);
+            const specs = val('specifications', {}); // specs is an object
+
             return `
                 <div class="grid grid-cols-2 gap-4">
                     ${inputField('Product Name', 'name')}
@@ -1051,12 +1116,33 @@ function getFormFields(type, data = {}) {
                     ${textareaField('Instructions', 'instructions')}
                     
                     <div class="col-span-2">
-                        <label class="block text-sm">Features (one per line)</label>
-                        <textarea id="form-features" rows="5" class="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600">${featuresText}</textarea>
+                        <label class="block text-sm">Features</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="form-feature-input" class="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600" placeholder="Add a feature...">
+                            <button type="button" id="add-feature-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Add</button>
+                        </div>
+                        <div id="feature-tags-container" class="flex flex-wrap gap-2 mt-2">
+                            ${features.map(f => `
+                                <span class="feature-tag bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100 text-sm px-3 py-1 rounded-full flex items-center">
+                                    <span class="feature-value">${f}</span>
+                                    <button type="button" class="remove-tag-btn ml-2 text-blue-600 dark:text-blue-300">&times;</button>
+                                </span>
+                            `).join('')}
+                        </div>
                     </div>
+
                     <div class="col-span-2">
-                        <label class="block text-sm">Specifications (JSON format)</label>
-                        <textarea id="form-specifications" rows="5" class="w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600">${specsText}</textarea>
+                        <label class="block text-sm">Specifications</label>
+                        <div id="spec-pairs-container" class="space-y-2">
+                            ${Object.entries(specs).map(([key, value]) => `
+                                <div class="spec-pair flex space-x-2">
+                                    <input type="text" class="spec-key w-1/3 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600" value="${key}">
+                                    <input type="text" class="spec-value w-2/3 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border border-gray-300 dark:border-gray-600" value="${value}">
+                                    <button type="button" class="remove-pair-btn bg-red-600 text-white px-3 py-1 rounded-lg text-sm">-</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button type="button" id="add-spec-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm mt-2">Add Specification</button>
                     </div>
                 </div>
             `;
@@ -1098,6 +1184,11 @@ function openModal(type, data = null) {
     modalBody.querySelectorAll('.file-input').forEach(input => {
         input.addEventListener('change', (e) => handleImageUpload(e, input.dataset.key));
     });
+
+    // NEW: Add listeners for dynamic product fields
+    if (type === 'product') {
+        setupProductModalListeners();
+    }
 
     // Show modal
     modalBackdrop.classList.remove('hidden');
@@ -1204,21 +1295,21 @@ async function handleFormSubmit(e) {
             case 'product':
                 tableName = 'products';
                 
-                // Parse features (from newline text to array)
-                const featuresText = document.getElementById('form-features').value;
-                const featuresArray = featuresText.split('\n').filter(f => f.trim() !== '');
+                // NEW: Parse features from tags
+                const featuresArray = [];
+                document.querySelectorAll('.feature-tag .feature-value').forEach(tag => {
+                    featuresArray.push(tag.textContent);
+                });
 
-                // Parse specifications (from JSON text to object)
-                const specsText = document.getElementById('form-specifications').value;
-                let specsObject = null;
-                try {
-                    specsObject = JSON.parse(specsText);
-                } catch (jsonError) {
-                    if (specsText.trim() !== '') { // Only error if text was entered
-                        throw new Error(`Specifications field contains invalid JSON: ${jsonError.message}`);
+                // NEW: Parse specifications from key/value pairs
+                const specsObject = {};
+                document.querySelectorAll('.spec-pair').forEach(pair => {
+                    const key = pair.querySelector('.spec-key').value.trim();
+                    const value = pair.querySelector('.spec-value').value.trim();
+                    if (key) {
+                        specsObject[key] = value;
                     }
-                    // if it's empty, we just pass null
-                }
+                });
 
                 dataObject = {
                     name: document.getElementById('form-name').value,
@@ -1229,8 +1320,8 @@ async function handleFormSubmit(e) {
                     images: JSON.parse(document.getElementById('form-images').value || '[]'),
                     description: document.getElementById('form-description').value,
                     instructions: document.getElementById('form-instructions').value,
-                    features: featuresArray, // NEW
-                    specifications: specsObject // NEW
+                    features: featuresArray,
+                    specifications: specsObject
                 };
                 break;
             case 'challenge':
