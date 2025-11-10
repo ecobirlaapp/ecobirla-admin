@@ -1,81 +1,52 @@
-// login.js
+// admin/login.js
 import { supabase } from './supabase-client.js';
 
-const loginForm = document.getElementById('login-form');
-const loginButton = document.getElementById('login-button');
-const errorMessage = document.getElementById('error-message');
-const studentIdInput = document.getElementById('student-id');
+const loginForm = document.getElementById('admin-login-form');
+const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
+const errorMessage = document.getElementById('error-message');
+const loginButton = document.getElementById('login-button');
 
-// --- Check if user is already logged in as admin ---
-async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        const { data: isAdmin } = await supabase.rpc('is_admin');
-        if (isAdmin) {
-            window.location.href = 'index.html';
-        }
-    }
-}
-checkAuth();
-
-// --- Handle Login Form Submission ---
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    setLoading(true);
-    hideError();
-    
-    const studentId = studentIdInput.value.trim();
-    const password = passwordInput.value;
+    errorMessage.classList.add('hidden');
+    loginButton.disabled = true;
+    loginButton.textContent = 'Signing In...';
 
-    try {
-        // Step 1: Get email from student ID
-        const { data: userEmail, error: rpcError } = await supabase
-            .rpc('get_email_for_student_id', { p_student_id: studentId });
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+        email: emailInput.value,
+        password: passwordInput.value,
+    });
 
-        if (rpcError || !userEmail) {
-            throw new Error("Invalid Student ID.");
+    if (loginError) {
+        showError(loginError.message);
+        return;
+    }
+
+    if (loginData.user) {
+        // Now, check if this user is an admin
+        const { data: isAdmin, error: rpcError } = await supabase.rpc('is_admin');
+
+        if (rpcError) {
+            showError(`RPC Error: ${rpcError.message}`);
+            await supabase.auth.signOut(); // Log them out
+            return;
         }
 
-        // Step 2: Sign in with email and password
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-            email: userEmail,
-            password: password,
-        });
-
-        if (loginError) {
-            throw new Error("Invalid Student ID or Password.");
-        }
-
-        // Step 3: CRITICAL - Check if the logged-in user is an admin
-        const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin');
-        
-        if (adminError || !isAdmin) {
-            // If not an admin, log them out immediately and show an error
+        if (isAdmin === true) {
+            // Success! Redirect to the dashboard
+            window.location.href = 'index.html';
+        } else {
+            // Not an admin
+            showError('Access Denied: You are not an administrator.');
             await supabase.auth.signOut();
-            throw new Error("Access Denied: You are not an admin.");
         }
-
-        // Step 4: Admin confirmed, redirect to dashboard
-        window.location.href = 'index.html';
-
-    } catch (error) {
-        showError(error.message);
-        setLoading(false);
     }
 });
-
-function setLoading(isLoading) {
-    loginButton.disabled = isLoading;
-    loginButton.textContent = isLoading ? 'Logging in...' : 'Login';
-}
 
 function showError(message) {
     errorMessage.textContent = message;
     errorMessage.classList.remove('hidden');
-}
-
-function hideError() {
-    errorMessage.classList.add('hidden');
-    errorMessage.textContent = '';
+    loginButton.disabled = false;
+    loginButton.textContent = 'Sign In';
 }
