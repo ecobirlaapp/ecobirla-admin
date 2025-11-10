@@ -15,7 +15,7 @@
         html { color-scheme: light dark; }
     </style>
     <script>
-        // Set initial theme from localStorage 
+        // Set initial theme from localStorage or system preference
         if (localStorage.getItem('theme') === 'light' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: light)').matches)) {
             document.documentElement.classList.remove('dark');
         } else {
@@ -30,7 +30,9 @@
         <p class="text-lg font-semibold text-gray-700 dark:text-gray-300">Loading Admin Dashboard...</p>
     </div>
 
-    <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0">
+    <div id="sidebar-backdrop" class="fixed inset-0 z-20 bg-black/50 hidden md:hidden"></div>
+    
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-transform duration-300 transform -translate-x-full md:static md:translate-x-0">
         <div class="p-4 flex items-center justify-center border-b border-gray-200 dark:border-gray-700">
             <img src="https://i.ibb.co/d00b4v0n/Eco-Birla-2-modified.png" alt="Logo" class="w-10 h-10 mr-2">
             <h1 class="text-xl font-bold text-gray-900 dark:text-white">EcoBirla Admin</h1>
@@ -71,8 +73,15 @@
         </div>
     </aside>
 
-    <main class="flex-1 overflow-y-auto">
+    <main class="flex-1 flex flex-col overflow-y-auto md:ml-64">
         
+        <header class="md:hidden sticky top-0 z-10 flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <button id="menu-toggle-btn" class="p-2 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+            <h1 class="text-lg font-bold text-gray-900 dark:text-white">EcoBirla Admin</h1>
+            <div class="w-10"></div> </header>
+
         <div id="page-dashboard" class="page p-6 md:p-8">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Dashboard</h2>
             
@@ -140,13 +149,13 @@
             <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Analytics</h3>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                         <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Views Over Time</h4>
-                        <div class="flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg">
-                            <button class="analytics-range-btn px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="day">Day</button>
-                            <button class="analytics-range-btn px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300 analytics-active" data-range="week">Week</button>
-                            <button class="analytics-range-btn px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="month">Month</button>
-                            <button class="analytics-range-btn px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="year">Year</button>
+                        <div class="flex-shrink-0 flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg">
+                            <button class="analytics-range-btn px-2 sm:px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="day">Day</button>
+                            <button class="analytics-range-btn px-2 sm:px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300 analytics-active" data-range="week">Week</button>
+                            <button class="analytics-range-btn px-2 sm:px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="month">Month</button>
+                            <button class="analytics-range-btn px-2 sm:px-3 py-1 text-sm rounded-md text-gray-700 dark:text-gray-300" data-range="year">Year</button>
                         </div>
                     </div>
                     <canvas id="views-over-time-chart"></canvas>
@@ -169,11 +178,11 @@
             <div id="top-champions-list" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
                 </div>
             
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                 <h3 class="text-2xl font-bold text-gray-900 dark:text-white">All Students</h3>
-                <input type="text" id="student-search" placeholder="Search students by name or ID..." class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                <input type="text" id="student-search" placeholder="Search students by name or ID..." class="w-full sm:w-auto px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -219,29 +228,35 @@
                 </div>
 
                 <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div class="flex border-b border-gray-200 dark:border-gray-700">
-                        <button class="student-tab active p-4 font-semibold" data-tab="history">Transactions</button>
-                        <button class="student-tab p-4 font-semibold text-gray-500 dark:text-gray-400" data-tab="rewards">Rewards</button>
-                        <button class="student-tab p-4 font-semibold text-gray-500 dark:text-gray-400" data-tab="logs">Activity Log</button>
+                    <div class="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+                        <button class="student-tab active p-4 font-semibold flex-shrink-0" data-tab="history">Transactions</button>
+                        <button class="student-tab p-4 font-semibold text-gray-500 dark:text-gray-400 flex-shrink-0" data-tab="rewards">Rewards</button>
+                        <button class="student-tab p-4 font-semibold text-gray-500 dark:text-gray-400 flex-shrink-0" data-tab="logs">Activity Log</button>
                     </div>
                     <div class="p-4">
                         <div id="tab-history" class="student-tab-content">
-                            <table class="data-table">
-                                <thead><tr><th>Date</th><th>Description</th><th>Points</th></tr></thead>
-                                <tbody id="student-detail-history-table"></tbody>
-                            </table>
+                            <div class="overflow-x-auto">
+                                <table class="data-table">
+                                    <thead><tr><th>Date</th><th>Description</th><th>Points</th></tr></thead>
+                                    <tbody id="student-detail-history-table"></tbody>
+                                </table>
+                            </div>
                         </div>
                         <div id="tab-rewards" class="student-tab-content hidden">
-                            <table class="data-table">
-                                <thead><tr><th>Purchased</th><th>Reward</th><th>Status</th><th>Used On</th></tr></thead>
-                                <tbody id="student-detail-rewards-table"></tbody>
-                            </table>
+                            <div class="overflow-x-auto">
+                                <table class="data-table">
+                                    <thead><tr><th>Purchased</th><th>Reward</th><th>Status</th><th>Used On</th></tr></thead>
+                                    <tbody id="student-detail-rewards-table"></tbody>
+                                </table>
+                            </div>
                         </div>
                         <div id="tab-logs" class="student-tab-content hidden">
-                             <table class="data-table">
-                                <thead><tr><th>Timestamp</th><th>Activity</th><th>Details</th></tr></thead>
-                                <tbody id="student-detail-logs-table"></tbody>
-                            </table>
+                             <div class="overflow-x-auto">
+                                <table class="data-table">
+                                    <thead><tr><th>Timestamp</th><th>Activity</th><th>Details</th></tr></thead>
+                                    <tbody id="student-detail-logs-table"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -249,13 +264,13 @@
         </div>
 
         <div id="page-events" class="page p-6 md:p-8 hidden">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
                 <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Event Management</h2>
-                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-event">
+                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 w-full sm:w-auto">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Event
                 </button>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -278,19 +293,19 @@
             </button>
             <h2 id="event-detail-title" class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Loading...</h2>
             
-            <div class="flex items-center space-x-4 mb-6">
-                <button id="award-points-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">
+            <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+                <button id="award-points-btn" class="w-full sm:w-auto bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">
                     <i data-lucide="award" class="inline w-5 h-5 mr-2"></i>Award Points to Attended
                 </button>
-                <button id="export-rsvp-pdf" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">
+                <button id="export-rsvp-pdf" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">
                     <i data-lucide="download" class="inline w-5 h-5 mr-2"></i>Download RSVP List (PDF)
                 </button>
-                <button id="export-attendance-pdf" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">
+                <button id="export-attendance-pdf" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">
                     <i data-lucide="download" class="inline w-5 h-5 mr-2"></i>Download Attendance (PDF)
                 </button>
             </div>
             
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -315,26 +330,26 @@
         <div id="page-store" class="page p-6 md:p-8 hidden">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Eco-Store Management</h2>
             
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                 <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Stores</h3>
-                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-store">
+                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 w-full sm:w-auto" data-modal="modal-store">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Store
                 </button>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto mb-8">
                 <table class="data-table">
                     <thead><tr><th>Logo</th><th>Name</th><th>Actions</th></tr></thead>
                     <tbody id="stores-table-body"></tbody>
                 </table>
             </div>
 
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                 <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Products</h3>
-                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-product">
+                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 w-full sm:w-auto" data-modal="modal-product">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Product
                 </button>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
                 <table class="data-table">
                     <thead><tr><th>Image</th><th>Name</th><th>Store</th><th>Cost (Pts)</th><th>Price (INR)</th><th>Actions</th></tr></thead>
                     <tbody id="products-table-body"></tbody>
@@ -345,26 +360,26 @@
         <div id="page-content" class="page p-6 md:p-8 hidden">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">Content Management</h2>
             
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                 <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Challenges</h3>
-                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-challenge">
+                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 w-full sm:w-auto" data-modal="modal-challenge">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Challenge
                 </button>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto mb-8">
                 <table class="data-table">
                     <thead><tr><th>Icon</th><th>Title</th><th>Points</th><th>Is Daily?</th><th>Actions</th></tr></thead>
                     <tbody id="challenges-table-body"></tbody>
                 </table>
             </div>
 
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                 <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Levels</h3>
-                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700" data-modal="modal-level">
+                <button class="add-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 w-full sm:w-auto" data-modal="modal-level">
                     <i data-lucide="plus" class="inline w-5 h-5 mr-1"></i> Add New Level
                 </button>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
                 <table class="data-table">
                     <thead><tr><th>Level #</th><th>Title</th><th>Min. Points</th><th>Actions</th></tr></thead>
                     <tbody id="levels-table-body"></tbody>
@@ -376,8 +391,8 @@
 
     <div id="modal-backdrop" class="fixed inset-0 z-40 bg-black/70 hidden opacity-0"></div>
     
-    <div id="modal-container" class="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 hidden transform scale-95 opacity-0 overflow-y-auto">
-        <form id="modal-form" class="p-6">
+    <div id="modal-container" class="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 hidden transform scale-95 opacity-0">
+        <form id="modal-form" class="p-6 h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 id="modal-title" class="text-2xl font-bold text-gray-900 dark:text-white">Modal Title</h3>
                 <button type="button" id="modal-close-btn" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
