@@ -1,1098 +1,1079 @@
-// app.js
-
+// admin/admin.js
 import { supabase } from './supabase-client.js';
 
-// --- Cloudinary Settings ---
+// --- CONSTANTS ---
 const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dnia8lb2q/image/upload';
-const CLOUDINARY_UPLOAD_PRESET = 'EcoBirla_avatars';
+const CLOUDINARY_PRESET = 'EcoBirla_avatars';
 
-// --- Global App State ---
-let appState = {
-    currentUser: null,
+// --- GLOBAL STATE ---
+const state = {
+    adminUser: null,
     allStudents: [],
     allHistory: [],
-    allLogs: [],
+    allActivity: [],
+    allEvents: [],
     allStores: [],
     allProducts: [],
     allChallenges: [],
-    allEvents: [],
     allLevels: [],
-    charts: {}, // To store chart instances
+    currentEventRSVPs: [],
+    viewsOverTimeChart: null,
+    pageViewChart: null,
+    editingItem: null, // Stores item being edited
 };
 
-// --- DOM Elements ---
-const mainContent = document.querySelector('main');
-const appLoading = document.getElementById('app-loading');
-const pages = document.querySelectorAll('.page');
-const sidebarNavItems = document.querySelectorAll('.sidebar-nav-item');
+// --- DOM ELEMENTS ---
+const loader = document.getElementById('app-loader');
+const allPages = document.querySelectorAll('.page');
+const sidebarLinks = document.querySelectorAll('.sidebar-link');
 const logoutButton = document.getElementById('logout-button');
-const themeToggle = document.getElementById('theme-toggle');
-
-// Page Title
-const desktopPageTitle = document.getElementById('desktop-page-title');
-const desktopGreeting = document.getElementById('desktop-greeting');
-
-// Sidebar User Info
-const userAvatarSidebar = document.getElementById('user-avatar-sidebar');
-const userNameSidebar = document.getElementById('user-name-sidebar');
+const adminAvatar = document.getElementById('admin-avatar');
+const adminName = document.getElementById('admin-name');
 
 // Dashboard Stats
 const statTotalDistributed = document.getElementById('stat-total-distributed');
 const statTotalRedeemed = document.getElementById('stat-total-redeemed');
-const statTotalBalance = document.getElementById('stat-total-balance');
-const liveActivityFeed = document.getElementById('live-activity-feed');
+const statCurrentBalance = document.getElementById('stat-current-balance');
+const statCo2Saved = document.getElementById('stat-co2-saved');
+const statItemsRecycled = document.getElementById('stat-items-recycled');
+const statEventsAttended = document.getElementById('stat-events-attended');
+const activityLogFeed = document.getElementById('activity-log-feed');
+const viewsOverTimeCtx = document.getElementById('views-over-time-chart');
+const pageViewCtx = document.getElementById('page-view-chart');
+
+// Students Page
 const topChampionsList = document.getElementById('top-champions-list');
-
-// NEW: Impact Stats
-const statCo2 = document.getElementById('stat-co2');
-const statRecycled = document.getElementById('stat-recycled');
-const statEvents = document.getElementById('stat-events');
-
-// Table Bodies
-const studentsTableBody = document.getElementById('students-table-body');
-const storesTableBody = document.getElementById('stores-table-body');
-const productsTableBody = document.getElementById('products-table-body');
-const challengesTableBody = document.getElementById('challenges-table-body');
-const eventsTableBody = document.getElementById('events-table-body');
-const levelsTableBody = document.getElementById('levels-table-body');
-const activityLogTableBody = document.getElementById('activity-log-table-body');
+const allStudentsTableBody = document.getElementById('all-students-table-body');
+const studentSearch = document.getElementById('student-search');
 
 // Student Detail Page
-const studentDetailPage = document.getElementById('student-detail');
+const studentDetailName = document.getElementById('student-detail-name');
+const studentDetailAvatar = document.getElementById('student-detail-avatar');
+const studentDetailNameCard = document.getElementById('student-detail-name-card');
+const studentDetailEmail = document.getElementById('student-detail-email');
+const studentDetailId = document.getElementById('student-detail-id');
+const studentDetailCourse = document.getElementById('student-detail-course');
+const studentDetailMobile = document.getElementById('student-detail-mobile');
+const studentDetailCurrentPts = document.getElementById('student-detail-current-pts');
+const studentDetailLifetimePts = document.getElementById('student-detail-lifetime-pts');
+const studentDetailIsAdmin = document.getElementById('student-detail-is-admin');
+const studentDetailJoined = document.getElementById('student-detail-joined');
+const studentDetailHistoryTable = document.getElementById('student-detail-history-table');
+const studentDetailRewardsTable = document.getElementById('student-detail-rewards-table');
+const studentDetailLogsTable = document.getElementById('student-detail-logs-table');
+const studentTabs = document.querySelectorAll('.student-tab');
+const studentTabContents = document.querySelectorAll('.student-tab-content');
+const editStudentBtn = document.getElementById('edit-student-btn');
 
-// CRUD Modal
-const crudModalOverlay = document.getElementById('crud-modal-overlay');
-const crudModal = document.getElementById('crud-modal');
+// Events Page
+const eventsTableBody = document.getElementById('events-table-body');
+
+// Event Detail Page
+const eventDetailTitle = document.getElementById('event-detail-title');
+const rsvpTableBody = document.getElementById('rsvp-table-body');
+const selectAllAttended = document.getElementById('select-all-attended');
+const awardPointsBtn = document.getElementById('award-points-btn');
+const exportRsvpPdfBtn = document.getElementById('export-rsvp-pdf');
+const exportAttendancePdfBtn = document.getElementById('export-attendance-pdf');
+
+// Store Page
+const storesTableBody = document.getElementById('stores-table-body');
+const productsTableBody = document.getElementById('products-table-body');
+
+// Content Page
+const challengesTableBody = document.getElementById('challenges-table-body');
+const levelsTableBody = document.getElementById('levels-table-body');
+
+// Modal
+const modalBackdrop = document.getElementById('modal-backdrop');
+const modalContainer = document.getElementById('modal-container');
+const modalForm = document.getElementById('modal-form');
 const modalTitle = document.getElementById('modal-title');
-const crudForm = document.getElementById('crud-form');
+const modalBody = document.getElementById('modal-body');
+const modalError = document.getElementById('modal-error');
+const modalCloseBtn = document.getElementById('modal-close-btn');
+const modalCancelBtn = document.getElementById('modal-cancel-btn');
+const modalSaveBtn = document.getElementById('modal-save-btn');
 
-// --- Helper Functions ---
+// Toast
+const toast = document.getElementById('toast');
+const toastMessage = document.getElementById('toast-message');
 
-const getTodayDateString = () => {
-    return new Date().toISOString().split('T')[0];
-};
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    checkAuthAndAdmin();
+    setupEventListeners();
+});
 
-/**
- * Activity Logging for Admins
- */
-async function logActivity(activity_type, details = {}) {
-    try {
-        if (!appState.currentUser) return;
-        supabase
-            .from('activity_log')
-            .insert({
-                student_id: appState.currentUser.student_id,
-                activity_type,
-                details
-            })
-            .then(({ error }) => {
-                if (error) console.warn("Error logging admin activity:", error.message);
-            });
-    } catch (err) {
-        console.warn("Failed to log admin activity:", err);
-    }
-}
+async function checkAuthAndAdmin() {
+    const { data: { session }, error } = await supabase.auth.getSession();
 
-/**
- * Cloudinary Image Upload Helper
- */
-async function uploadToCloudinary(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    try {
-        const response = await fetch(CLOUDINARY_URL, {
-            method: 'POST',
-            body: formData,
-        });
-        const data = await response.json();
-        if (data.secure_url) {
-            return data.secure_url;
-        } else {
-            throw new Error('Cloudinary upload failed.');
-        }
-    } catch (error) {
-        console.error('Error uploading image:', error);
-        return null;
-    }
-}
-
-// --- Dark Mode Logic ---
-function initializeDarkMode() {
-    if (localStorage.getItem('theme') === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-    
-    themeToggle.addEventListener('click', () => {
-        logActivity('admin_toggle_dark_mode');
-        if (document.documentElement.classList.contains('dark')) {
-            document.documentElement.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
-        } else {
-            document.documentElement.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-        }
-    });
-}
-
-// --- Data Fetching Functions (Admin) ---
-
-async function fetchAdminProfile() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    if (error || !session) {
         window.location.href = 'login.html';
         return;
     }
-    const { data, error } = await supabase
+    
+    // Check if user is an admin
+    const { data: isAdmin, error: rpcError } = await supabase.rpc('is_admin');
+    
+    if (rpcError || !isAdmin) {
+        alert('Access Denied: You are not an administrator.');
+        await supabase.auth.signOut();
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Admin is verified, load the app
+    const { data: studentData } = await supabase
         .from('students')
         .select('*')
-        .eq('auth_id', user.id)
+        .eq('auth_id', session.user.id)
         .single();
-    if (error) {
-        console.error("Error fetching admin profile:", error.message);
-        window.location.href = 'login.html';
-    } else {
-        appState.currentUser = data;
-    }
-}
-
-async function fetchDashboardStats() {
-    const { data: distributed, error: distError } = await supabase
-        .from('points_history')
-        .select('points_change')
-        .gt('points_change', 0);
-        
-    const { data: redeemed, error: redError } = await supabase
-        .from('points_history')
-        .select('points_change')
-        .eq('type', 'reward-purchase');
-        
-    const { data: balance, error: balError } = await supabase
-        .from('students')
-        .select('current_points');
-
-    const totalDistributed = distributed?.reduce((sum, item) => sum + item.points_change, 0) || 0;
-    const totalRedeemed = redeemed?.reduce((sum, item) => sum + item.points_change, 0) || 0;
-    const totalBalance = balance?.reduce((sum, item) => sum + item.current_points, 0) || 0;
-
-    statTotalDistributed.textContent = totalDistributed;
-    statTotalRedeemed.textContent = Math.abs(totalRedeemed);
-    statTotalBalance.textContent = totalBalance;
     
-    // Return totalDistributed for impact card
-    return totalDistributed;
+    state.adminUser = studentData;
+    adminName.textContent = state.adminUser.name;
+    adminAvatar.src = state.adminUser.avatar_url || 'https://placehold.co/80x80/gray/white?text=A';
+
+    await loadInitialData();
 }
 
-// NEW: Fetch Impact Stats
-async function fetchImpactStats(totalDistributed) {
-    // 1. CO2 (Calculated from input)
-    const co2Saved = (totalDistributed * 0.6).toFixed(1);
-    statCo2.textContent = `${co2Saved} KG`;
+async function loadInitialData() {
+    loader.classList.remove('hidden');
     
-    // 2. Recycled (Count 'plastic' in history)
-    const { count: recycledCount, error: recycledError } = await supabase
-        .from('points_history')
-        .select('*', { count: 'exact', head: true })
-        .ilike('description', '%plastic%');
-        
-    if (!recycledError) {
-        statRecycled.textContent = recycledCount;
-    }
+    try {
+        const [
+            students,
+            history,
+            activity,
+            events,
+            stores,
+            products,
+            challenges,
+            levels
+        ] = await Promise.all([
+            supabase.from('students').select('*').order('lifetime_points', { ascending: false }),
+            supabase.from('points_history').select('*'),
+            supabase.from('activity_log').select('*').order('created_at', { ascending: false }),
+            supabase.from('events').select('*, event_rsvps(count)').order('event_date', { ascending: false }),
+            supabase.from('stores').select('*').order('name'),
+            supabase.from('products').select('*, stores(name)').order('name'),
+            supabase.from('challenges').select('*').order('title'),
+            supabase.from('levels').select('*').order('level_number')
+        ]);
 
-    // 3. Events (Count from appState)
-    statEvents.textContent = appState.allEvents.length;
-}
+        state.allStudents = students.data;
+        state.allHistory = history.data;
+        state.allActivity = activity.data;
+        state.allEvents = events.data;
+        state.allStores = stores.data;
+        state.allProducts = products.data;
+        state.allChallenges = challenges.data;
+        state.allLevels = levels.data;
 
-async function fetchAllStudents() {
-    const { data, error } = await supabase.from('students').select('*').order('name');
-    if (error) console.error(error);
-    else appState.allStudents = data;
-}
-async function fetchAllStores() {
-    const { data, error } = await supabase.from('stores').select('*').order('name');
-    if (error) console.error(error);
-    else appState.allStores = data;
-}
-async function fetchAllProducts() {
-    const { data, error } = await supabase.from('products').select('*, stores(name)').order('name');
-    if (error) console.error(error);
-    else appState.allProducts = data;
-}
-async function fetchAllChallenges() {
-    const { data, error } = await supabase.from('challenges').select('*').order('title');
-    if (error) console.error(error);
-    else appState.allChallenges = data;
-}
-async function fetchAllEvents() {
-    const { data, error } = await supabase.from('events').select('*').order('event_date', { ascending: false });
-    if (error) console.error(error);
-    else appState.allEvents = data;
-}
-async function fetchAllLevels() {
-    const { data, error } = await supabase.from('levels').select('*').order('level_number');
-    if (error) console.error(error);
-    else appState.allLevels = data;
-}
-async function fetchActivityLog() {
-    const { data, error } = await supabase
-        .from('activity_log')
-        .select('*, students(name, student_id)')
-        .order('created_at', { ascending: false })
-        .limit(100);
-    if (error) console.error("Error fetching activity log:", error.message);
-    else appState.allLogs = data;
-}
-
-// --- Render Functions ---
-
-function renderHeader() {
-    const user = appState.currentUser;
-    if (!user) return;
-    const avatar = user.avatar_url || 'https://placehold.co/80x80/gray/white?text=Admin';
-    userAvatarSidebar.src = avatar;
-    userNameSidebar.textContent = user.name;
-    
-    // Set greeting
-    desktopGreeting.textContent = `Hi, ${user.name.split(' ')[0]}! Let's check the stats.`;
-}
-
-function renderTopChampions() {
-    topChampionsList.innerHTML = ''; // Clear list
-    
-    const sortedStudents = [...appState.allStudents]
-        .sort((a, b) => b.current_points - a.current_points)
-        .slice(0, 3);
-        
-    sortedStudents.forEach(student => {
-        topChampionsList.innerHTML += `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <img src="${student.avatar_url || 'https://placehold.co/40x40/gray/white?text=User'}" class="w-10 h-10 rounded-full">
-                    <div>
-                        <p class="font-semibold text-gray-900 dark:text-white">${student.name}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">${student.current_points} Pts</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-
-    if (sortedStudents.length === 0) {
-        topChampionsList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No student data available.</p>';
-    }
-    
-    lucide.createIcons();
-}
-
-async function renderDashboard() {
-    // Fetch stats and pass distributed points to impact function
-    const totalDistributed = await fetchDashboardStats();
-    await fetchImpactStats(totalDistributed);
-    
-    liveActivityFeed.innerHTML = ''; // Clear feed
-    appState.allLogs.slice(0, 10).forEach(log => { // Show 10 most recent
-        liveActivityFeed.innerHTML += `
-            <div class="border-b dark:border-gray-700 pb-2">
-                <p class="text-sm text-gray-900 dark:text-white">
-                    <span class="font-semibold">${log.students?.name || 'A user'}</span>
-                    ${log.activity_type.replace('_', ' ')}
-                    ${log.details?.page ? `(Page: ${log.details.page})` : ''}
-                    ${log.details?.action ? `(Action: ${log.details.action})` : ''}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">${new Date(log.created_at).toLocaleString()}</p>
-            </div>
-        `;
-    });
-    
-    renderTopChampions(); // Render the new champions list
-}
-
-function renderStudents() {
-    studentsTableBody.innerHTML = '';
-    appState.allStudents.forEach(student => {
-        studentsTableBody.innerHTML += `
-            <tr>
-                <td>${student.student_id}</td>
-                <td>
-                    <div class="flex items-center space-x-3">
-                        <img src="${student.avatar_url || 'https://placehold.co/40x40/gray/white?text=User'}" class="w-10 h-10 rounded-full">
-                        <span>${student.name}</span>
-                    </div>
-                </td>
-                <td>${student.email}</td>
-                <td>${student.current_points}</td>
-                <td>${student.is_admin ? '<span class="text-green-500 font-bold">Yes</span>' : 'No'}</td>
-                <td class="space-x-2">
-                    <button onclick="viewStudentDetails('${student.student_id}')" class="text-green-600 hover:text-green-900">View</button>
-                    <button onclick="handleDelete('students', '${student.student_id}')" class="text-red-600 hover:text-red-900">Delete</button>
-                </td>
-            </tr>
-        `;
-    });
-}
-
-// ... (viewStudentDetails, handleUpdateStudent, renderStores, renderProducts, renderChallenges, renderEvents, renderLevels all remain the same) ...
-async function viewStudentDetails(studentId) {
-    logActivity('admin_view_student', { studentId });
-    showPage('student-detail', 'Student Details');
-    studentDetailPage.innerHTML = `<p class="text-gray-500 dark:text-gray-400">Loading student data...</p>`;
-    
-    // Fetch all data for this student in parallel
-    const [profile, history, rewards, logs, completions] = await Promise.all([
-        supabase.from('students').select('*').eq('student_id', studentId).single(),
-        supabase.from('points_history').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
-        supabase.from('user_rewards').select('*, products(name)').eq('student_id', studentId).order('purchase_date', { ascending: false }),
-        supabase.from('activity_log').select('*').eq('student_id', studentId).order('created_at', { ascending: false }).limit(50),
-        supabase.from('challenge_completions').select('*, challenges(title)').eq('student_id', studentId).order('completed_at', { ascending: false })
-    ]);
-
-    if (profile.error) {
-        studentDetailPage.innerHTML = `<p class="text-red-500">Error loading profile.</p>`;
-        return;
-    }
-    const student = profile.data;
-
-    // Build the page
-    studentDetailPage.innerHTML = `
-        <button onclick="showPage('students', 'Student Management')" class="flex items-center text-green-600 dark:text-green-400 font-semibold mb-4">
-            <i data-lucide="arrow-left" class="w-5 h-5 mr-2"></i> Back to all students
-        </button>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-1 space-y-6">
-                <div class="card p-6 text-center">
-                    <img src="${student.avatar_url || 'https://placehold.co/128x128/gray/white?text=User'}" class="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-green-500">
-                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white">${student.name}</h2>
-                    <p class="text-gray-500 dark:text-gray-400">${student.email}</p>
-                    <p class="text-gray-500 dark:text-gray-400">${student.student_id}</p>
-                </div>
-                <div class="card p-6">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Details</h3>
-                    <div class="space-y-2">
-                        <p><strong class="text-gray-500 dark:text-gray-400">Course:</strong> ${student.course || 'N/A'}</p>
-                        <p><strong class="text-gray-500 dark:text-gray-400">Mobile:</strong> ${student.mobile || 'N/A'}</p>
-                        <p><strong class="text-gray-500 dark:text-gray-400">Joined:</strong> ${new Date(student.joined_at).toLocaleDateString('en-GB')}</p>
-                        <p><strong class="text-gray-500 dark:text-gray-400">Admin:</strong> ${student.is_admin ? 'Yes' : 'No'}</p>
-                    </div>
-                </div>
-                <div class="card p-6">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">EcoPoints</h3>
-                    <div class="space-y-2">
-                        <p class="text-3xl font-bold text-green-600 dark:text-green-400">${student.current_points} <span class="text-lg">Current</span></p>
-                        <p class="text-xl font-semibold text-gray-700 dark:text-gray-300">${student.lifetime_points} <span class="text-base">Lifetime</span></p>
-                    </div>
-                </div>
-                <div class="card p-6">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Update Profile</h3>
-                    <form id="update-student-form" class="space-y-4">
-                        <input type="hidden" id="student-auth-id" value="${student.auth_id}">
-                        <div>
-                            <label class="form-label">Name</label>
-                            <input id="student-name" class="form-input" value="${student.name}">
-                        </div>
-                        <div>
-                            <label class="form-label">Email</label>
-                            <input id="student-email" class="form-input" value="${student.email}">
-                        </div>
-                        <div>
-                            <label class="form-label">Avatar URL (or upload new)</label>
-                            <input id="student-avatar-url" class="form-input" value="${student.avatar_url || ''}">
-                            <input id="student-avatar-file" type="file" class="mt-2 text-sm text-gray-500">
-                        </div>
-                        <div>
-                            <label class="form-label">Grant Admin Access</label>
-                            <input id="student-is-admin" type="checkbox" ${student.is_admin ? 'checked' : ''} class="rounded text-green-500">
-                        </div>
-                        <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Update Profile</button>
-                    </form>
-                </div>
-            </div>
-            
-            <div class="lg:col-span-2 card p-6">
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">User Activity</h3>
-                <div class="space-y-4 h-[1000px] overflow-y-auto">
-                    <h4 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Points History (${history.data?.length || 0})</h4>
-                    <div class="space-y-2">${history.data?.map(item => `
-                        <div class="flex justify-between p-2 rounded ${item.points_change > 0 ? 'bg-green-50 dark:bg-green-900' : 'bg-red-50 dark:bg-red-900'}">
-                            <p>${item.description}</p>
-                            <p class="font-bold ${item.points_change > 0 ? 'text-green-600' : 'text-red-600'}">${item.points_change}</p>
-                        </div>
-                    `).join('')}</div>
-                    
-                    <h4 class="text-lg font-semibold text-gray-800 dark:text-gray-200 pt-4">Rewards (${rewards.data?.length || 0})</h4>
-                    <div class="space-y-2">${rewards.data?.map(item => `
-                        <div class="flex justify-between p-2 rounded bg-gray-50 dark:bg-gray-700">
-                            <p>${item.products.name}</p>
-                            <p class="font-semibold ${item.status === 'used' ? 'text-gray-500' : 'text-green-600'}">${item.status}</p>
-                        </div>
-                    `).join('')}</div>
-
-                    <h4 class="text-lg font-semibold text-gray-800 dark:text-gray-200 pt-4">Challenge Completions (${completions.data?.length || 0})</h4>
-                    <div class="space-y-2">${completions.data?.map(item => `
-                        <div class="flex justify-between p-2 rounded bg-yellow-50 dark:bg-yellow-900">
-                            <p>${item.challenges.title}</p>
-                            <p class="text-sm text-gray-500">${new Date(item.completed_at).toLocaleDateString('en-GB')}</p>
-                        </div>
-                    `).join('')}</div>
-
-                    <h4 class="text-lg font-semibold text-gray-800 dark:text-gray-200 pt-4">Recent Activity Log (${logs.data?.length || 0})</h4>
-                    <div class="space-y-2">${logs.data?.map(item => `
-                        <div class="p-2 border-b dark:border-gray-700">
-                            <p class="font-semibold">${item.activity_type}</p>
-                            <p class="text-xs text-gray-500">${new Date(item.created_at).toLocaleString('en-GB')}</p>
-                            <pre class="text-xs text-gray-400">${JSON.stringify(item.details, null, 2)}</pre>
-                        </div>
-                    `).join('')}</div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Add event listener for the new form
-    document.getElementById('update-student-form').addEventListener('submit', (e) => handleUpdateStudent(e, student.student_id));
-    lucide.createIcons();
-}
-
-async function handleUpdateStudent(event, studentId) {
-    event.preventDefault();
-    logActivity('admin_update_student_attempt', { studentId });
-
-    const avatarFile = document.getElementById('student-avatar-file').files[0];
-    let avatarUrl = document.getElementById('student-avatar-url').value;
-
-    if (avatarFile) {
-        const newUrl = await uploadToCloudinary(avatarFile);
-        if (newUrl) { avatarUrl = newUrl; }
-    }
-
-    const updates = {
-        name: document.getElementById('student-name').value,
-        email: document.getElementById('student-email').value,
-        avatar_url: avatarUrl,
-        is_admin: document.getElementById('student-is-admin').checked
-    };
-
-    const { error } = await supabase
-        .from('students')
-        .update(updates)
-        .eq('student_id', studentId);
-
-    if (error) {
-        alert("Error updating student: " + error.message);
-    } else {
-        alert("Student updated successfully!");
-        logActivity('admin_update_student_success', { studentId });
-        await fetchAllStudents();
+        // Render default page
+        renderDashboard();
         renderStudents();
-        viewStudentDetails(studentId);
+        renderEvents();
+        renderStore();
+        renderContent();
+        
+        navigateTo(window.location.hash || '#dashboard');
+
+    } catch (err) {
+        console.error("Error loading initial data:", err);
+        alert(`Error loading data: ${err.message}`);
+    } finally {
+        loader.classList.add('hidden');
     }
 }
 
-function renderStores() {
-    storesTableBody.innerHTML = '';
-    appState.allStores.forEach(item => {
-        storesTableBody.innerHTML += `
-            <tr>
-                <td>${item.id}</td>
-                <td>${item.name}</td>
-                <td class="space-x-2">
-                    <button onclick='openEditModal("stores", ${JSON.stringify(item)})' class="text-blue-600 hover:text-blue-900">Edit</button>
-                    <button onclick="handleDelete('stores', '${item.id}')" class="text-red-600 hover:text-red-900">Delete</button>
-                </td>
-            </tr>
-        `;
-    });
-}
-
-function renderProducts() {
-    productsTableBody.innerHTML = '';
-    appState.allProducts.forEach(item => {
-        productsTableBody.innerHTML += `
-            <tr>
-                <td>${item.id}</td>
-                <td>
-                    <div class="flex items-center space-x-3">
-                        <img src="${item.images ? item.images[0] : 'https://placehold.co/40x40/gray/white?text=Img'}" class="w-10 h-10 rounded-lg object-cover">
-                        <span>${item.name}</span>
-                    </div>
-                </td>
-                <td>${item.stores.name}</td>
-                <td>${item.cost_in_points}</td>
-                <td class="space-x-2">
-                    <button onclick='openEditModal("products", ${JSON.stringify(item)})' class="text-blue-600 hover:text-blue-900">Edit</button>
-                    <button onclick="handleDelete('products', '${item.id}')" class="text-red-600 hover:text-red-900">Delete</button>
-                </td>
-            </tr>
-        `;
-    });
-}
-
-function renderChallenges() {
-    challengesTableBody.innerHTML = '';
-    appState.allChallenges.forEach(item => {
-        challengesTableBody.innerHTML += `
-            <tr>
-                <td>${item.title}</td>
-                <td>${item.points_reward}</td>
-                <td><i data-lucide="${item.icon || 'award'}" class="w-5 h-5"></i></td>
-                <td class="space-x-2">
-                    <button onclick='openEditModal("challenges", ${JSON.stringify(item)})' class="text-blue-600 hover:text-blue-900">Edit</button>
-                    <button onclick="handleDelete('challenges', '${item.id}')" class="text-red-600 hover:text-red-900">Delete</button>
-                </td>
-            </tr>
-        `;
-    });
-    lucide.createIcons();
-}
-
-function renderEvents() {
-    eventsTableBody.innerHTML = '';
-    appState.allEvents.forEach(item => {
-        eventsTableBody.innerHTML += `
-            <tr>
-                <td>${item.title}</td>
-                <td>${new Date(item.event_date).toLocaleString('en-GB')}</td>
-                <td>${item.points_reward}</td>
-                <td class="space-x-2">
-                    <button onclick='openEditModal("events", ${JSON.stringify(item)})' class="text-blue-600 hover:text-blue-900">Edit</button>
-                    <button onclick="handleDelete('events', '${item.id}')" class="text-red-600 hover:text-red-900">Delete</button>
-                </td>
-            </tr>
-        `;
-    });
-}
-
-function renderLevels() {
-    levelsTableBody.innerHTML = '';
-    appState.allLevels.forEach(item => {
-        levelsTableBody.innerHTML += `
-            <tr>
-                <td>${item.level_number}</td>
-                <td>${item.title}</td>
-                <td>${item.min_points}</td>
-                <td class="space-x-2">
-                    <button onclick='openEditModal("levels", ${JSON.stringify(item)})' class="text-blue-600 hover:text-blue-900">Edit</button>
-                    <button onclick="handleDelete('levels', '${item.level_number}')" class="text-red-600 hover:text-red-900">Delete</button>
-                </td>
-            </tr>
-        `;
-    });
-}
-
-function renderActivityLog() {
-    activityLogTableBody.innerHTML = '';
-    appState.allLogs.forEach(log => {
-        activityLogTableBody.innerHTML += `
-            <tr>
-                <td>${new Date(log.created_at).toLocaleString()}</td>
-                <td>${log.students?.name || log.student_id}</td>
-                <td><span class="px-2 py-1 text-xs font-semibold bg-gray-200 dark:bg-gray-700 rounded-full">${log.activity_type}</span></td>
-                <td><pre class="text-xs">${JSON.stringify(log.details)}</pre></td>
-            </tr>
-        `;
-    });
-}
-
-// --- NEW: Analytics & Chart Functions ---
-
-function processLogData() {
-    const pageViews = {};
-    const activityOverTime = {}; // Grouping by hour for simplicity
-    
-    const pageViewLogs = appState.allLogs.filter(log => log.activity_type === 'admin_page_view' || log.activity_type === 'page_view');
-    
-    pageViewLogs.forEach(log => {
-        const page = log.details?.page || 'Unknown';
-        pageViews[page] = (pageViews[page] || 0) + 1;
+// --- NAVIGATION ---
+function setupEventListeners() {
+    // Logout
+    logoutButton.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        window.location.href = 'login.html';
     });
 
-    appState.allLogs.forEach(log => {
-        const date = new Date(log.created_at);
-        const hour = date.toISOString().slice(0, 13); // Groups by YYYY-MM-DDTHH
-        activityOverTime[hour] = (activityOverTime[hour] || 0) + 1;
+    // Sidebar Navigation
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const hash = link.hash;
+            navigateTo(hash);
+        });
     });
     
-    // Sort activity by time
-    const sortedActivity = Object.entries(activityOverTime).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+    // Back Buttons
+    document.querySelectorAll('.back-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            navigateTo(`#${e.currentTarget.dataset.target}`);
+        });
+    });
+
+    // Student Detail Tabs
+    studentTabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const targetTab = e.currentTarget.dataset.tab;
+            studentTabs.forEach(t => t.classList.remove('active', 'text-white'));
+            e.currentTarget.classList.add('active', 'text-white');
+
+            studentTabContents.forEach(c => c.classList.add('hidden'));
+            document.getElementById(`tab-${targetTab}`).classList.remove('hidden');
+        });
+    });
     
-    return {
-        pageViewData: {
-            labels: Object.keys(pageViews),
-            data: Object.values(pageViews),
-        },
-        activityTimeData: {
-            labels: sortedActivity.map(entry => new Date(entry[0]).toLocaleString('en-US', { day: 'numeric', hour: 'numeric' })),
-            data: sortedActivity.map(entry => entry[1]),
+    // Student Search
+    studentSearch.addEventListener('input', (e) => {
+        renderStudents(e.target.value.toLowerCase());
+    });
+    
+    // Event Detail Listeners
+    selectAllAttended.addEventListener('change', (e) => {
+        document.querySelectorAll('.attended-checkbox').forEach(cb => {
+            cb.checked = e.target.checked;
+        });
+    });
+    awardPointsBtn.addEventListener('click', handleAwardEventPoints);
+    exportRsvpPdfBtn.addEventListener('click', () => exportEventData('rsvp'));
+    exportAttendancePdfBtn.addEventListener('click', () => exportEventData('attendance'));
+    editStudentBtn.addEventListener('click', () => {
+        const studentId = editStudentBtn.dataset.studentId;
+        const student = state.allStudents.find(s => s.student_id === studentId);
+        openModal('student', student);
+    });
+
+    // Modal Listeners
+    modalCloseBtn.addEventListener('click', closeModal);
+    modalCancelBtn.addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', closeModal);
+    modalForm.addEventListener('submit', handleFormSubmit);
+
+    // Add New Buttons
+    document.querySelectorAll('.add-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const modalType = e.currentTarget.dataset.modal.replace('modal-', '');
+            openModal(modalType);
+        });
+    });
+}
+
+function navigateTo(hash) {
+    if (!hash) hash = '#dashboard';
+    
+    // Hide all pages
+    allPages.forEach(page => page.classList.add('hidden'));
+    
+    // Show target page
+    const targetPageId = `page-${hash.substring(1)}`;
+    const targetPage = document.getElementById(targetPageId);
+    if (targetPage) {
+        targetPage.classList.remove('hidden');
+    } else {
+        document.getElementById('page-dashboard').classList.remove('hidden'); // Fallback
+    }
+
+    // Update sidebar
+    sidebarLinks.forEach(link => {
+        if (link.hash === hash) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
         }
-    };
+    });
+    
+    // Update URL hash
+    window.location.hash = hash;
+}
+
+// --- RENDER: DASHBOARD ---
+function renderDashboard() {
+    // 1. EcoPoints Stats
+    const totalDistributed = state.allHistory
+        .filter(h => h.points_change > 0)
+        .reduce((sum, h) => sum + h.points_change, 0);
+    const totalRedeemed = state.allHistory
+        .filter(h => h.points_change < 0)
+        .reduce((sum, h) => sum + h.points_change, 0);
+    
+    statTotalDistributed.textContent = totalDistributed.toLocaleString();
+    statTotalRedeemed.textContent = Math.abs(totalRedeemed).toLocaleString();
+    statCurrentBalance.textContent = (totalDistributed + totalRedeemed).toLocaleString();
+
+    // 2. Impact Stats
+    statCo2Saved.textContent = `${(totalDistributed * 0.8).toFixed(1)} kg`;
+    statItemsRecycled.textContent = state.allHistory.filter(h => h.description.toLowerCase().includes('submitted')).length;
+    statEventsAttended.textContent = state.allHistory.filter(h => h.description.toLowerCase().includes('attended')).length;
+
+    // 3. Analytics Charts
+    renderAnalyticsCharts();
+    
+    // 4. Activity Feed
+    activityLogFeed.innerHTML = '';
+    const feed = state.allActivity.slice(0, 50).map(log => {
+        let details = '';
+        if (log.details && log.details.page) details = `(Page: ${log.details.page})`;
+        if (log.details && log.details.action) details = `(Action: ${log.details.action})`;
+
+        return `
+            <div class="py-2 px-3 border-b border-gray-700 last:border-b-0">
+                <p class="text-sm text-gray-200">
+                    <span class="font-semibold text-green-400">${log.student_id}</span>
+                    ${log.activity_type.replace(/_/g, ' ')} ${details}
+                </p>
+                <p class="text-xs text-gray-500">${new Date(log.created_at).toLocaleString()}</p>
+            </div>
+        `;
+    }).join('');
+    activityLogFeed.innerHTML = feed || '<p class="text-gray-400 text-center p-4">No activity found.</p>';
 }
 
 function renderAnalyticsCharts() {
-    const { pageViewData, activityTimeData } = processLogData();
+    // Page View Distribution
+    const pageViews = state.allActivity
+        .filter(log => log.activity_type === 'page_view')
+        .reduce((acc, log) => {
+            const page = log.details.page || 'unknown';
+            acc[page] = (acc[page] || 0) + 1;
+            return acc;
+        }, {});
     
-    // Destroy old charts if they exist
-    if (appState.charts.pageViews) appState.charts.pageViews.destroy();
-    if (appState.charts.activityTime) appState.charts.activityTime.destroy();
-
-    // 1. Page Views Pie Chart
-    const pvCtx = document.getElementById('page-views-chart').getContext('2d');
-    appState.charts.pageViews = new Chart(pvCtx, {
+    if (state.pageViewChart) state.pageViewChart.destroy();
+    state.pageViewChart = new Chart(pageViewCtx, {
         type: 'doughnut',
         data: {
-            labels: pageViewData.labels,
+            labels: Object.keys(pageViews),
             datasets: [{
                 label: 'Page Views',
-                data: pageViewData.data,
-                backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280'],
+                data: Object.values(pageViews),
+                backgroundColor: ['#34D399', '#60A5FA', '#F87171', '#FBBF24', '#A78BFA', '#EC4899'],
             }]
         },
         options: {
             responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top',
-                }
-            }
+            plugins: { legend: { labels: { color: '#9ca3af' } } }
         }
     });
 
-    // 2. Activity Over Time Bar Chart
-    const atCtx = document.getElementById('activity-time-chart').getContext('2d');
-    appState.charts.activityTime = new Chart(atCtx, {
+    // Views Over Time (by Day for last 30 days)
+    const viewsByDay = state.allActivity
+        .filter(log => log.activity_type === 'page_view')
+        .reduce((acc, log) => {
+            const day = new Date(log.created_at).toISOString().split('T')[0];
+            acc[day] = (acc[day] || 0) + 1;
+            return acc;
+        }, {});
+    
+    const last30Days = [...Array(30).keys()].map(i => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return d.toISOString().split('T')[0];
+    }).reverse();
+
+    if (state.viewsOverTimeChart) state.viewsOverTimeChart.destroy();
+    state.viewsOverTimeChart = new Chart(viewsOverTimeCtx, {
         type: 'bar',
         data: {
-            labels: activityTimeData.labels,
+            labels: last30Days,
             datasets: [{
-                label: 'Total Activities Logged',
-                data: activityTimeData.data,
-                backgroundColor: '#10B981',
-                borderColor: '#059669',
+                label: 'Total Page Views',
+                data: last30Days.map(day => viewsByDay[day] || 0),
+                backgroundColor: '#059669',
+                borderColor: '#10B981',
                 borderWidth: 1
             }]
         },
         options: {
             responsive: true,
             scales: {
-                y: { beginAtZero: true }
+                y: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } },
+                x: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } }
             },
-            plugins: {
-                legend: { display: false }
-            }
+            plugins: { legend: { display: false } }
         }
     });
 }
 
+// --- RENDER: STUDENTS ---
+function renderStudents(searchTerm = '') {
+    // 1. Top Champions
+    topChampionsList.innerHTML = '';
+    const champions = state.allStudents.slice(0, 5).map((student, index) => `
+        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 text-center">
+            <span class="text-2xl font-bold ${index === 0 ? 'text-yellow-400' : (index === 1 ? 'text-gray-300' : (index === 2 ? 'text-yellow-600' : 'text-gray-400'))}">
+                #${index + 1}
+            </span>
+            <img src="${student.avatar_url || 'https://placehold.co/80x80/gray/white?text=S'}" class="w-16 h-16 rounded-full mx-auto my-2 border-2 ${index === 0 ? 'border-yellow-400' : 'border-gray-600'}">
+            <p class="font-semibold text-white truncate">${student.name}</p>
+            <p class="text-sm text-green-400 font-bold">${student.lifetime_points} Pts</p>
+        </div>
+    `).join('');
+    topChampionsList.innerHTML = champions;
 
-// --- CRUD Modal Logic ---
-// ... (populateModalForm, openCreateModal, openEditModal, closeCrudModal, handleCrudFormSubmit, handleDelete all remain the same) ...
-function populateModalForm(type, item = null) {
-    crudForm.innerHTML = ''; // Clear form
-    crudForm.dataset.type = type; // Set type for submit handler
-    crudForm.dataset.id = item ? (item.id || item.level_number) : ''; // Set id for submit handler
+    // 2. All Students
+    allStudentsTableBody.innerHTML = '';
+    const filteredStudents = state.allStudents.filter(s => 
+        s.name.toLowerCase().includes(searchTerm) || 
+        s.student_id.toLowerCase().includes(searchTerm)
+    );
 
-    let fields = '';
+    const studentRows = filteredStudents.map(student => `
+        <tr class="hover:bg-gray-700">
+            <td>
+                <div class="flex items-center">
+                    <img src="${student.avatar_url || 'https://placehold.co/40x40/gray/white?text=S'}" class="w-8 h-8 rounded-full mr-3">
+                    <div>
+                        <p class="font-medium text-white">${student.name}</p>
+                        <p class="text-xs text-gray-400">${student.email}</p>
+                    </div>
+                </div>
+            </td>
+            <td>${student.student_id}</td>
+            <td>${student.course}</td>
+            <td class="font-medium text-green-400">${student.current_points}</td>
+            <td class="font-medium text-blue-400">${student.lifetime_points}</td>
+            <td>${student.is_admin ? '<span class="py-1 px-2 text-xs bg-yellow-400 text-yellow-900 font-bold rounded-full">YES</span>' : 'No'}</td>
+            <td>
+                <button class="view-student-btn action-btn bg-blue-600 text-white hover:bg-blue-700" data-id="${student.student_id}">View</button>
+            </td>
+        </tr>
+    `).join('');
+    allStudentsTableBody.innerHTML = studentRows || '<tr><td colspan="7" class="text-center p-4">No students found.</td></tr>';
     
-    switch (type) {
-        case 'stores':
-            fields = `
-                <div>
-                    <label class="form-label">Store ID (e.g., 's1', 'canteen')</label>
-                    <input name="id" class="form-input" value="${item?.id || ''}" ${item ? 'readonly' : ''} required>
-                </div>
-                <div>
-                    <label class="form-label">Store Name</label>
-                    <input name="name" class="form-input" value="${item?.name || ''}" required>
-                </div>
-                <div>
-                    <label class="form-label">Logo URL</label>
-                    <input name="logo_url" class="form-input" value="${item?.logo_url || ''}">
-                </div>
-            `;
-            break;
-        case 'products':
-            fields = `
-                <div>
-                    <label class="form-label">Product ID (e.g., 'p1', 'veg-thali')</label>
-                    <input name="id" class="form-input" value="${item?.id || ''}" ${item ? 'readonly' : ''} required>
-                </div>
-                <div>
-                    <label class="form-label">Store</label>
-                    <select name="store_id" class="form-input" required>
-                        ${appState.allStores.map(store => `<option value="${store.id}" ${item?.store_id === store.id ? 'selected' : ''}>${store.name}</option>`).join('')}
-                    </select>
-                </div>
-                <div>
-                    <label class="form-label">Product Name</label>
-                    <input name="name" class="form-input" value="${item?.name || ''}" required>
-                </div>
-                <div>
-                    <label class="form-label">Description</label>
-                    <textarea name="description" class="form-input">${item?.description || ''}</textarea>
-                </div>
-                <div>
-                    <label class="form-label">Image URLs (comma-separated)</label>
-                    <input name="images" class="form-input" value="${item?.images?.join(',') || ''}">
-                    <label class="form-label mt-2">...or upload new (replaces all)</label>
-                    <input name="image_upload" type="file" class="text-sm text-gray-500 dark:text-gray-400">
-                </div>
-                <div>
-                    <label class="form-label">Original Price (INR)</label>
-                    <input name="original_price_inr" type="number" class="form-input" value="${item?.original_price_inr || 0}">
-                </div>
-                <div>
-                    <label class="form-label">Discounted Price (INR)</label>
-                    <input name="discounted_price_inr" type="number" class="form-input" value="${item?.discounted_price_inr || 0}">
-                </div>
-                <div>
-                    <label class="form-label">Cost (in EcoPoints)</label>
-                    <input name="cost_in_points" type="number" class="form-input" value="${item?.cost_in_points || 0}" required>
-                </div>
-                <div>
-                    <label class="form-label">Instructions</label>
-                    <input name="instructions" class="form-input" value="${item?.instructions || ''}">
-                </div>
-            `;
-            break;
-        case 'challenges':
-            fields = `
-                <div>
-                    <label class="form-label">Title</label>
-                    <input name="title" class="form-input" value="${item?.title || ''}" required>
-                </div>
-                <div>
-                    <label class="form-label">Description</label>
-                    <input name="description" class="form-input" value="${item?.description || ''}">
-                </div>
-                <div>
-                    <label class="form-label">Points Reward</label>
-                    <input name="points_reward" type="number" class="form-input" value="${item?.points_reward || 0}" required>
-                </div>
-                <div>
-                    <label class="form-label">Lucide Icon Name (e.g., 'walk')</label>
-                    <input name="icon" class="form-input" value="${item?.icon || ''}">
-                </div>
-            `;
-            break;
-        case 'events':
-            fields = `
-                <div>
-                    <label class="form-label">Title</label>
-                    <input name="title" class="form-input" value="${item?.title || ''}" required>
-                </div>
-                <div>
-                    <label class="form-label">Description</label>
-                    <input name="description" class="form-input" value="${item?.description || ''}">
-                </div>
-                <div>
-                    <label class="form-label">Event Date & Time</label>
-                    <input name="event_date" type="datetime-local" class="form-input" value="${item ? new Date(item.event_date).toISOString().slice(0, 16) : ''}" required>
-                </div>
-                <div>
-                    <label class="form-label">Points Reward</label>
-                    <input name="points_reward" type="number" class="form-input" value="${item?.points_reward || 0}" required>
-                </div>
-            `;
-            break;
-        case 'levels':
-            fields = `
-                <div>
-                    <label class="form-label">Level Number</label>
-                    <input name="level_number" type="number" class="form-input" value="${item?.level_number || ''}" ${item ? 'readonly' : ''} required>
-                </div>
-                <div>
-                    <label class="form-label">Title</label>
-                    <input name="title" class="form-input" value="${item?.title || ''}" required>
-                </div>
-                <div>
-                    <label class="form-label">Minimum Points Required</label>
-                    <input name="min_points" type="number" class="form-input" value="${item?.min_points || 0}" required>
-                </div>
-            `;
-            break;
-    }
-    
-    fields += `
-        <button type="submit" id="modal-submit-button" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg">
-            ${item ? 'Update' : 'Create'}
-        </button>
-    `;
-    
-    crudForm.innerHTML = fields;
-}
-
-window.openCreateModal = (type) => {
-    logActivity('admin_modal_open', { action: 'create', type });
-    modalTitle.textContent = `Add New ${type.charAt(0).toUpperCase() + type.slice(1)}`;
-    populateModalForm(type);
-    crudModalOverlay.classList.remove('hidden');
-    crudModal.classList.remove('hidden');
-    lucide.createIcons();
-}
-
-window.openEditModal = (type, item) => {
-    logActivity('admin_modal_open', { action: 'edit', type, id: item.id || item.level_number });
-    modalTitle.textContent = `Edit ${type.charAt(0).toUpperCase() + type.slice(1)}`;
-    populateModalForm(type, item);
-    crudModalOverlay.classList.remove('hidden');
-    crudModal.classList.remove('hidden');
-    lucide.createIcons();
-}
-
-window.closeCrudModal = () => {
-    crudModalOverlay.classList.add('hidden');
-    crudModal.classList.add('hidden');
-    crudForm.innerHTML = '';
-}
-
-async function handleCrudFormSubmit(event) {
-    event.preventDefault();
-    const form = event.target;
-    const type = form.dataset.type;
-    const id = form.dataset.id;
-    const isEdit = !!id;
-    
-    logActivity('admin_crud_submit', { action: isEdit ? 'update' : 'create', type, id });
-
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-
-    if (type === 'products' && formData.get('image_upload')?.size > 0) {
-        const file = formData.get('image_upload');
-        const imageUrl = await uploadToCloudinary(file);
-        if (imageUrl) {
-            data.images = [imageUrl];
-        }
-    } else if (type === 'products') {
-        data.images = data.images.split(',').filter(url => url.trim() !== '');
-    }
-    delete data.image_upload;
-    
-    let query;
-    if (isEdit) {
-        const primaryKey = type === 'levels' ? 'level_number' : 'id';
-        query = supabase.from(type).update(data).eq(primaryKey, id);
-    } else {
-        query = supabase.from(type).insert(data);
-    }
-    
-    const { error } = await query;
-    
-    if (error) {
-        alert(`Error: ${error.message}`);
-        logActivity('admin_crud_failed', { type, id, error: error.message });
-    } else {
-        alert(`${type.slice(0, -1)} ${isEdit ? 'updated' : 'created'} successfully!`);
-        logActivity('admin_crud_success', { type, id });
-        closeCrudModal();
-        await loadDataForPage(type); 
-        refreshCurrentPage();
-    }
-}
-
-window.handleDelete = async (type, id) => {
-    if (!confirm(`Are you sure you want to delete this ${type.slice(0, -1)}? This cannot be undone.`)) {
-        return;
-    }
-    
-    logActivity('admin_delete_attempt', { type, id });
-    const primaryKey = type === 'levels' ? 'level_number' : 'id';
-
-    const { error } = await supabase.from(type).delete().eq(primaryKey, id);
-
-    if (error) {
-        alert(`Error: ${error.message}`);
-        logActivity('admin_delete_failed', { type, id, error: error.message });
-    } else {
-        alert(`${type.slice(0, -1)} deleted successfully!`);
-        logActivity('admin_delete_success', { type, id });
-        await loadDataForPage(type);
-        refreshCurrentPage();
-    }
-}
-
-
-// --- Page Navigation & Initialization ---
-
-async function loadDataForPage(pageId) {
-    switch (pageId) {
-        case 'dashboard':
-            await Promise.all([fetchDashboardStats(), fetchActivityLog()]);
-            break;
-        case 'analytics':
-            // Data is already loaded (allLogs), just need to process it
-            break;
-        case 'students':
-        case 'student-detail':
-            await fetchAllStudents();
-            break;
-        case 'stores':
-            await fetchAllStores();
-            break;
-        case 'products':
-            await Promise.all([fetchAllProducts(), fetchAllStores()]);
-            break;
-        case 'challenges':
-            await fetchAllChallenges();
-            break;
-        case 'events':
-            await fetchAllEvents();
-            break;
-        case 'levels':
-            await fetchAllLevels();
-            break;
-        case 'activity-log':
-            await fetchActivityLog();
-            break;
-    }
-}
-
-function refreshCurrentPage() {
-    const activePage = document.querySelector('.page.active');
-    if (activePage) {
-        renderPage(activePage.id);
-    }
-}
-
-function renderPage(pageId) {
-    switch (pageId) {
-        case 'dashboard':
-            renderDashboard();
-            break;
-        case 'analytics':
-            renderAnalyticsCharts();
-            break;
-        case 'students':
-            renderStudents();
-            break;
-        case 'stores':
-            renderStores();
-            break;
-        case 'products':
-            renderProducts();
-            break;
-        case 'challenges':
-            renderChallenges();
-            break;
-        case 'events':
-            renderEvents();
-            break;
-        case 'levels':
-            renderLevels();
-            break;
-        case 'activity-log':
-            renderActivityLog();
-            break;
-    }
-}
-
-window.showPage = (pageId, pageTitle) => {
-    pages.forEach(p => p.classList.remove('active'));
-    
-    const newPage = document.getElementById(pageId);
-    if (newPage) {
-        newPage.classList.add('active');
-    }
-    
-    sidebarNavItems.forEach(item => {
-        item.classList.toggle('active', item.getAttribute('onclick').includes(`'${pageId}'`));
-    });
-    
-    mainContent.scrollTop = 0;
-    
-    logActivity('admin_page_view', { page: pageId });
-    
-    // Set the main header title
-    desktopPageTitle.textContent = pageTitle || pageId.charAt(0).toUpperCase() + pageId.slice(1);
-    
-    // Hide/show greeting based on page
-    desktopGreeting.classList.toggle('hidden', pageId !== 'dashboard');
-    
-    loadDataForPage(pageId).then(() => {
-        renderPage(pageId);
+    // Add event listeners for new buttons
+    document.querySelectorAll('.view-student-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            renderStudentDetail(e.currentTarget.dataset.id);
+            navigateTo('#student-detail');
+        });
     });
 }
 
-// --- App Initialization ---
-
-async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        window.location.href = 'login.html';
-        return false;
-    }
-    
-    const { data: isAdmin, error } = await supabase.rpc('is_admin');
-    if (error || !isAdmin) {
-        await supabase.auth.signOut();
-        window.location.href = 'login.html';
-        return false;
-    }
-    
-    return true; // User is logged in AND is an admin
-}
-
-async function loadInitialData() {
-    appLoading.style.display = 'flex';
-
-    await fetchAdminProfile();
-    
-    if (!appState.currentUser) {
-        console.error("Could not load admin profile. Logging out.");
-        await supabase.auth.signOut();
-        window.location.href = 'login.html';
+// --- RENDER: STUDENT DETAIL ---
+async function renderStudentDetail(studentId) {
+    const student = state.allStudents.find(s => s.student_id === studentId);
+    if (!student) {
+        showToast('Error: Student not found.', 'error');
+        navigateTo('#students');
         return;
     }
+    
+    // Set loading states
+    studentDetailName.textContent = 'Loading...';
+    studentDetailHistoryTable.innerHTML = '<tr><td colspan="3" class="text-center p-4">Loading...</td></tr>';
+    studentDetailRewardsTable.innerHTML = '<tr><td colspan="4" class="text-center p-4">Loading...</td></tr>';
+    studentDetailLogsTable.innerHTML = '<tr><td colspan="3" class="text-center p-4">Loading...</td></tr>';
+    
+    // Set static info
+    editStudentBtn.dataset.studentId = student.student_id;
+    studentDetailName.textContent = `Student: ${student.name}`;
+    studentDetailAvatar.src = student.avatar_url || 'https://placehold.co/80x80/gray/white?text=S';
+    studentDetailNameCard.textContent = student.name;
+    studentDetailEmail.textContent = student.email;
+    studentDetailId.textContent = student.student_id;
+    studentDetailCourse.textContent = student.course || 'N/A';
+    studentDetailMobile.textContent = student.mobile || 'N/A';
+    studentDetailCurrentPts.textContent = student.current_points;
+    studentDetailLifetimePts.textContent = student.lifetime_points;
+    studentDetailIsAdmin.textContent = student.is_admin ? 'Yes' : 'No';
+    studentDetailJoined.textContent = new Date(student.joined_at).toLocaleDateString();
 
-    logActivity('admin_login_success');
-
-    // Fetch all data in parallel
-    await Promise.all([
-        // fetchDashboardStats(), // Now called by renderDashboard
-        fetchAllStudents(),
-        fetchAllStores(),
-        fetchAllProducts(),
-        fetchAllChallenges(),
-        fetchAllEvents(),
-        fetchAllLevels(),
-        fetchActivityLog()
+    // Fetch dynamic info
+    const [history, rewards, logs] = await Promise.all([
+        supabase.from('points_history').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
+        supabase.from('user_rewards').select('*, products(name)').eq('student_id', studentId).order('purchase_date', { ascending: false }),
+        supabase.from('activity_log').select('*').eq('student_id', studentId).order('created_at', { ascending: false }).limit(100)
     ]);
     
-    appLoading.style.display = 'none';
+    // Render History
+    studentDetailHistoryTable.innerHTML = history.data.map(h => `
+        <tr>
+            <td class="text-xs text-gray-400">${new Date(h.created_at).toLocaleString()}</td>
+            <td>${h.description}</td>
+            <td class="font-medium ${h.points_change > 0 ? 'text-green-400' : 'text-red-400'}">${h.points_change}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="3" class="text-center p-4">No transactions found.</td></tr>';
+    
+    // Render Rewards
+    studentDetailRewardsTable.innerHTML = rewards.data.map(r => `
+        <tr>
+            <td class="text-xs text-gray-400">${new Date(r.purchase_date).toLocaleDateString()}</td>
+            <td>${r.products.name}</td>
+            <td>${r.status === 'active' ? '<span class="py-1 px-2 text-xs bg-green-400 text-green-900 font-bold rounded-full">Active</span>' : '<span class="py-1 px-2 text-xs bg-gray-500 text-gray-900 font-bold rounded-full">Used</span>'}</td>
+            <td class="text-xs text-gray-400">${r.used_date ? new Date(r.used_date).toLocaleDateString() : 'N/A'}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="4" class="text-center p-4">No rewards found.</td></tr>';
+
+    // Render Logs
+    studentDetailLogsTable.innerHTML = logs.data.map(l => `
+        <tr>
+            <td class="text-xs text-gray-400">${new Date(l.created_at).toLocaleString()}</td>
+            <td>${l.activity_type.replace(/_/g, ' ')}</td>
+            <td class="text-xs">${JSON.stringify(l.details)}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="3" class="text-center p-4">No activity logs found.</td></tr>';
+    
+    // Reset to first tab
+    studentTabs.forEach((t, i) => t.classList.toggle('active', i === 0).classList.toggle('text-white', i === 0));
+    studentTabContents.forEach((c, i) => c.classList.toggle('hidden', i !== 0));
 }
 
-// Make functions globally accessible for inline onclick=""
-Object.assign(window, {
-    showPage,
-    openCreateModal,
-    openEditModal,
-    closeCrudModal,
-    handleDelete,
-    viewStudentDetails
-});
+// --- RENDER: EVENTS ---
+function renderEvents() {
+    eventsTableBody.innerHTML = '';
+    const eventRows = state.allEvents.map(event => `
+        <tr>
+            <td class="font-medium text-white">${event.title}</td>
+            <td class="text-gray-300">${new Date(event.event_date).toLocaleString()}</td>
+            <td class="text-green-400 font-medium">${event.points_reward}</td>
+            <td class="text-blue-400 font-medium">${event.event_rsvps[0]?.count || 0}</td>
+            <td class="space-x-2">
+                <button class="manage-rsvp-btn action-btn bg-blue-600 text-white hover:bg-blue-700" data-id="${event.id}">Manage RSVPs</button>
+                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="event" data-id="${event.id}">Edit</button>
+                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="events" data-id="${event.id}">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+    eventsTableBody.innerHTML = eventRows || '<tr><td colspan="5" class="text-center p-4">No events found.</td></tr>';
 
-document.addEventListener('DOMContentLoaded', async () => {
-    initializeDarkMode();
-    
-    logoutButton.addEventListener('click', async () => {
-        logActivity('admin_logout');
-        await supabase.auth.signOut();
-        window.location.href = 'login.html';
+    // Add listeners
+    document.querySelectorAll('.manage-rsvp-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            renderEventDetail(e.currentTarget.dataset.id);
+            navigateTo('#event-detail');
+        });
     });
-    
-    crudForm.addEventListener('submit', handleCrudFormSubmit);
+    addCrudListeners(eventsTableBody);
+}
 
-    const isLoggedIn = await checkAuth();
-    if (!isLoggedIn) {
+// --- RENDER: EVENT DETAIL ---
+async function renderEventDetail(eventId) {
+    const event = state.allEvents.find(e => e.id == eventId);
+    if (!event) return;
+
+    eventDetailTitle.textContent = event.title;
+    awardPointsBtn.dataset.eventId = event.id;
+    awardPointsBtn.dataset.points = event.points_reward;
+    exportRsvpPdfBtn.dataset.eventId = event.id;
+    exportAttendancePdfBtn.dataset.eventId = event.id;
+    
+    rsvpTableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Loading RSVPs...</td></tr>';
+    
+    const { data, error } = await supabase
+        .from('event_rsvps')
+        .select('*, students(*)')
+        .eq('event_id', eventId)
+        .order('created_at');
+        
+    if (error) {
+        rsvpTableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-red-400">Error loading RSVPs.</td></tr>';
         return;
     }
     
-    await loadInitialData();
+    state.currentEventRSVPs = data;
+    const rsvpRows = data.map(rsvp => `
+        <tr>
+            <td class="font-medium text-white">${rsvp.students.name}</td>
+            <td class="text-gray-300">${rsvp.student_id}</td>
+            <td class="text-gray-300">${rsvp.students.course}</td>
+            <td class="text-gray-400 text-xs">${new Date(rsvp.created_at).toLocaleDateString()}</td>
+            <td class="text-center">
+                <input type="checkbox" class="attended-checkbox w-5 h-5 rounded" data-student-id="${rsvp.student_id}">
+            </td>
+        </tr>
+    `).join('');
+    rsvpTableBody.innerHTML = rsvpRows || '<tr><td colspan="5" class="text-center p-4">No RSVPs yet.</td></tr>';
+}
 
-    renderHeader();
+// --- RENDER: STORE ---
+function renderStore() {
+    // Stores
+    storesTableBody.innerHTML = '';
+    const storeRows = state.allStores.map(store => `
+        <tr>
+            <td><img src="${store.logo_url}" class="w-10 h-10 rounded-lg object-cover"></td>
+            <td class="font-medium text-white">${store.name}</td>
+            <td class="space-x-2">
+                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="store" data-id="${store.id}">Edit</button>
+                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="stores" data-id="${store.id}">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+    storesTableBody.innerHTML = storeRows || '<tr><td colspan="3" class="text-center p-4">No stores found.</td></tr>';
     
-    showPage('dashboard', 'Dashboard');
-    lucide.createIcons(); 
-});
+    // Products
+    productsTableBody.innerHTML = '';
+    const productRows = state.allProducts.map(product => `
+        <tr>
+            <td><img src="${product.images ? product.images[0] : 'https://placehold.co/40x40/gray/white?text=P'}" class="w-10 h-10 rounded-lg object-cover"></td>
+            <td class="font-medium text-white">${product.name}</td>
+            <td>${product.stores?.name || 'N/A'}</td>
+            <td class="text-green-400 font-medium">${product.cost_in_points}</td>
+            <td class="text-gray-300">₹${product.discounted_price_inr}</td>
+            <td class="space-x-2">
+                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="product" data-id="${product.id}">Edit</button>
+                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="products" data-id="${product.id}">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+    productsTableBody.innerHTML = productRows || '<tr><td colspan="6" class="text-center p-4">No products found.</td></tr>';
+
+    addCrudListeners(storesTableBody);
+    addCrudListeners(productsTableBody);
+}
+
+// --- RENDER: CONTENT (CHALLENGES & LEVELS) ---
+function renderContent() {
+    // Challenges
+    challengesTableBody.innerHTML = '';
+    const challengeRows = state.allChallenges.map(c => `
+        <tr>
+            <td><i data-lucide="${c.icon}" class="w-5 h-5 text-yellow-400"></i></td>
+            <td class="font-medium text-white">${c.title}</td>
+            <td class="text-green-400 font-medium">${c.points_reward}</td>
+            <td>${c.is_daily ? 'Yes' : 'No'}</td>
+            <td class="space-x-2">
+                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="challenge" data-id="${c.id}">Edit</button>
+                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="challenges" data-id="${c.id}">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+    challengesTableBody.innerHTML = challengeRows || '<tr><td colspan="5" class="text-center p-4">No challenges found.</td></tr>';
+    lucide.createIcons();
+    
+    // Levels
+    levelsTableBody.innerHTML = '';
+    const levelRows = state.allLevels.map(l => `
+        <tr>
+            <td class="font-bold text-lg text-white">${l.level_number}</td>
+            <td class="font-medium text-white">${l.title}</td>
+            <td class="text-blue-400 font-medium">${l.min_points}</td>
+            <td class="space-x-2">
+                <button class="edit-btn action-btn bg-yellow-500 text-yellow-900 hover:bg-yellow-600" data-type="level" data-id="${l.id}">Edit</button>
+                <button class="delete-btn action-btn bg-red-600 text-white hover:bg-red-700" data-type="levels" data-id="${l.id}">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+    levelsTableBody.innerHTML = levelRows || '<tr><td colspan="4" class="text-center p-4">No levels found.</td></tr>';
+    
+    addCrudListeners(challengesTableBody);
+    addCrudListeners(levelsTableBody);
+}
+
+// --- CRUD & ACTIONS ---
+
+function addCrudListeners(tableBody) {
+    // Edit Buttons
+    tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const type = e.currentTarget.dataset.type;
+            const id = e.currentTarget.dataset.id;
+            let item;
+            switch(type) {
+                case 'student': item = state.allStudents.find(i => i.student_id == id); break;
+                case 'event': item = state.allEvents.find(i => i.id == id); break;
+                case 'store': item = state.allStores.find(i => i.id == id); break;
+                case 'product': item = state.allProducts.find(i => i.id == id); break;
+                case 'challenge': item = state.allChallenges.find(i => i.id == id); break;
+                case 'level': item = state.allLevels.find(i => i.id == id); break;
+            }
+            if(item) openModal(type, item);
+        });
+    });
+
+    // Delete Buttons
+    tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const type = e.currentTarget.dataset.type; // This is the table name
+            const id = e.currentTarget.dataset.id;
+            
+            if (confirm(`Are you sure you want to delete this item? This cannot be undone.`)) {
+                try {
+                    const { error }_ = await supabase.from(type).delete().match({ id: id });
+                    if (error) throw error;
+                    showToast('Item deleted successfully!', 'success');
+                    await loadInitialData(); // Reload all data
+                } catch (err) {
+                    alert(`Error deleting: ${err.message}`);
+                }
+            }
+        });
+    });
+}
+
+async function handleAwardEventPoints(e) {
+    const eventId = e.currentTarget.dataset.eventId;
+    const points = parseInt(e.currentTarget.dataset.points, 10);
+    const event = state.allEvents.find(e => e.id == eventId);
+    
+    if (!event || !points) {
+        alert("Error: Event details not found.");
+        return;
+    }
+
+    const attendedCheckboxes = document.querySelectorAll('.attended-checkbox:checked');
+    if (attendedCheckboxes.length === 0) {
+        alert("Please select at least one student who attended.");
+        return;
+    }
+    
+    if (!confirm(`This will award ${points} points to ${attendedCheckboxes.length} student(s). Are you sure?`)) {
+        return;
+    }
+    
+    const records = Array.from(attendedCheckboxes).map(cb => ({
+        student_id: cb.dataset.studentId,
+        points_change: points,
+        description: `Attended: ${event.title}`,
+        type: 'event'
+    }));
+
+    try {
+        const { error } = await supabase.from('points_history').insert(records);
+        if (error) throw error;
+        
+        showToast(`Awarded points to ${records.length} student(s).`, 'success');
+        await loadInitialData(); // Refresh dashboard stats
+        
+    } catch (err) {
+        alert(`Error awarding points: ${err.message}`);
+    }
+}
+
+async function exportEventData(type) {
+    const eventId = exportRsvpPdfBtn.dataset.eventId; // Both buttons have it
+    const event = state.allEvents.find(e => e.id == eventId);
+    if (!event) return;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    let title, data, head;
+    const studentsToExport = (type === 'rsvp')
+        ? state.currentEventRSVPs // All RSVPs
+        : state.currentEventRSVPs.filter(rsvp => // Only attended
+            document.querySelector(`.attended-checkbox[data-student-id="${rsvp.student_id}"]`).checked
+          );
+    
+    if (type === 'rsvp') {
+        title = `RSVP List: ${event.title}`;
+        head = [['Name', 'Student ID', 'Course', 'Email']];
+        data = studentsToExport.map(rsvp => [
+            rsvp.students.name,
+            rsvp.student_id,
+            rsvp.students.course,
+            rsvp.students.email
+        ]);
+    } else {
+        title = `Attendance List: ${event.title}`;
+        head = [['Name', 'Student ID', 'Course', 'Email']];
+        data = studentsToExport.map(rsvp => [
+            rsvp.students.name,
+            rsvp.student_id,
+            rsvp.students.course,
+            rsvp.students.email
+        ]);
+    }
+
+    doc.setFontSize(18);
+    doc.text(title, 14, 22);
+    doc.setFontSize(11);
+    doc.text(`Total: ${data.length} student(s)`, 14, 30);
+    
+    doc.autoTable({
+        startY: 35,
+        head: head,
+        body: data,
+        theme: 'striped'
+    });
+    
+    doc.save(`${type}_list_${event.id}.pdf`);
+}
+
+// --- MODAL & FORM LOGIC ---
+
+function getFormFields(type, data = {}) {
+    // Helper to get value or default
+    const val = (key, def = '') => data[key] || def;
+
+    // Helper for generating image upload field
+    const imgField = (label, key) => `
+        <div class="col-span-2">
+            <label class="block text-sm font-medium text-gray-300 mb-1">${label}</label>
+            <input type="file" class="file-input w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700" data-key="${key}">
+            <input type="hidden" id="form-${key}" value="${val(key, '[]')}">
+            <div id="image-preview-${key}" class="mt-2 flex space-x-2">
+                ${(Array.isArray(val(key)) ? val(key) : [val(key)]).map(img => 
+                    img ? `<img src="${img}" class="w-16 h-16 rounded-lg object-cover">` : ''
+                ).join('')}
+            </div>
+        </div>
+    `;
+
+    switch(type) {
+        case 'student':
+            return `
+                <input type="hidden" id="form-student_id" value="${val('student_id')}">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-sm">Name</label><input type="text" id="form-name" value="${val('name')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Email</label><input type="email" id="form-email" value="${val('email')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600" readonly></div>
+                    <div><label class="block text-sm">Course</label><input type="text" id="form-course" value="${val('course')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Mobile</label><input type="text" id="form-mobile" value="${val('mobile')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Current Points</label><input type="number" id="form-current_points" value="${val('current_points')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Lifetime Points</label><input type="number" id="form-lifetime_points" value="${val('lifetime_points')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div class="col-span-2"><label class="flex items-center space-x-2"><input type="checkbox" id="form-is_admin" ${val('is_admin') ? 'checked' : ''} class="w-4 h-4 rounded"><span>Is Administrator</span></label></div>
+                </div>
+            `;
+        case 'event':
+            return `
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2"><label class="block text-sm">Title</label><input type="text" id="form-title" value="${val('title')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Event Date & Time</label><input type="datetime-local" id="form-event_date" value="${val('event_date') ? val('event_date').slice(0, 16) : ''}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Points Reward</label><input type="number" id="form-points_reward" value="${val('points_reward')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div class="col-span-2"><label class="block text-sm">Description</label><textarea id="form-description" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">${val('description')}</textarea></div>
+                </div>
+            `;
+        case 'store':
+            return `
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-sm">Store Name</label><input type="text" id="form-name" value="${val('name')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    ${imgField('Logo URL', 'logo_url')}
+                </div>
+            `;
+        case 'product':
+            return `
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-sm">Product Name</label><input type="text" id="form-name" value="${val('name')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Store</label>
+                        <select id="form-store_id" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">
+                            ${state.allStores.map(s => `<option value="${s.id}" ${val('store_id') == s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div><label class="block text-sm">Cost (Points)</label><input type="number" id="form-cost_in_points" value="${val('cost_in_points')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Discounted Price (INR)</label><input type="number" id="form-discounted_price_inr" value="${val('discounted_price_inr')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Original Price (INR)</label><input type="number" id="form-original_price_inr" value="${val('original_price_inr')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    ${imgField('Product Images (1st is main)', 'images')}
+                    <div class="col-span-2"><label class="block text-sm">Description</label><textarea id="form-description" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">${val('description')}</textarea></div>
+                    <div class="col-span-2"><label class="block text-sm">Instructions</label><textarea id="form-instructions" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">${val('instructions')}</textarea></div>
+                </div>
+            `;
+        case 'challenge':
+            return `
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2"><label class="block text-sm">Title</label><input type="text" id="form-title" value="${val('title')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Icon (Lucide Name)</label><input type="text" id="form-icon" value="${val('icon')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Points Reward</label><input type="number" id="form-points_reward" value="${val('points_reward')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div class="col-span-2"><label class="block text-sm">Description</label><textarea id="form-description" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600">${val('description')}</textarea></div>
+                    <div class="col-span-2"><label class="flex items-center space-x-2"><input type="checkbox" id="form-is_daily" ${val('is_daily', true) ? 'checked' : ''} class="w-4 h-4 rounded"><span>Is a Daily Challenge</span></label></div>
+                </div>
+            `;
+        case 'level':
+            return `
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-sm">Level Number</label><input type="number" id="form-level_number" value="${val('level_number')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div><label class="block text-sm">Title</label><input type="text" id="form-title" value="${val('title')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                    <div class="col-span-2"><label class="block text-sm">Minimum Points</label><input type="number" id="form-min_points" value="${val('min_points')}" class="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"></div>
+                </div>
+            `;
+        default: return '<p>Error: Form not found.</p>';
+    }
+}
+
+function openModal(type, data = null) {
+    state.editingItem = data; // Set item being edited (or null for new)
+    modalForm.dataset.type = type;
+    modalError.textContent = '';
+    
+    // Set title
+    const title = (data ? 'Edit ' : 'Add New ') + type.charAt(0).toUpperCase() + type.slice(1);
+    modalTitle.textContent = title;
+
+    // Set body
+    modalBody.innerHTML = getFormFields(type, data);
+    
+    // Add image upload listeners
+    modalBody.querySelectorAll('.file-input').forEach(input => {
+        input.addEventListener('change', (e) => handleImageUpload(e, input.dataset.key));
+    });
+
+    // Show modal
+    modalBackdrop.classList.remove('hidden');
+    modalContainer.classList.remove('hidden');
+    setTimeout(() => {
+        modalBackdrop.classList.remove('opacity-0');
+        modalContainer.classList.remove('opacity-0', 'scale-95');
+    }, 10);
+}
+
+function closeModal() {
+    modalBackdrop.classList.add('opacity-0');
+    modalContainer.classList.add('opacity-0', 'scale-95');
+    setTimeout(() => {
+        modalBackdrop.classList.add('hidden');
+        modalContainer.classList.add('hidden');
+        modalBody.innerHTML = '';
+        state.editingItem = null;
+    }, 300);
+}
+
+async function handleImageUpload(event, key) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const previewContainer = document.getElementById(`image-preview-${key}`);
+    const hiddenInput = document.getElementById(`form-${key}`);
+    
+    // Show temp loader
+    previewContainer.innerHTML = '<p class="text-sm text-gray-400">Uploading...</p>';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_PRESET);
+
+    try {
+        const response = await fetch(CLOUDINARY_URL, {
+            method: 'POST',
+            body: formData,
+        });
+        if (!response.ok) throw new Error('Upload failed');
+        const data = await response.json();
+        const newUrl = data.secure_url;
+        
+        if (key === 'images') { // Handle multiple images
+            const existingImages = JSON.parse(hiddenInput.value || '[]');
+            existingImages.push(newUrl);
+            hiddenInput.value = JSON.stringify(existingImages);
+            previewContainer.innerHTML = existingImages.map(img => `<img src="${img}" class="w-16 h-16 rounded-lg object-cover">`).join('');
+        } else { // Handle single image (logo_url)
+            hiddenInput.value = newUrl;
+            previewContainer.innerHTML = `<img src="${newUrl}" class="w-16 h-16 rounded-lg object-cover">`;
+        }
+        
+    } catch (err) {
+        console.error(err);
+        previewContainer.innerHTML = '<p class="text-sm text-red-400">Upload failed. Please try again.</p>';
+    }
+}
+
+async function handleFormSubmit(e) {
+    e.preventDefault();
+    modalSaveBtn.disabled = true;
+    modalError.textContent = '';
+    
+    const type = e.target.dataset.type;
+    let dataObject = {};
+    let tableName = type;
+    let id = state.editingItem?.id;
+    let matchField = 'id';
+
+    // Collect data from form
+    try {
+        switch(type) {
+            case 'student':
+                tableName = 'students';
+                id = document.getElementById('form-student_id').value;
+                matchField = 'student_id';
+                dataObject = {
+                    name: document.getElementById('form-name').value,
+                    course: document.getElementById('form-course').value,
+                    mobile: document.getElementById('form-mobile').value,
+                    current_points: parseInt(document.getElementById('form-current_points').value, 10),
+                    lifetime_points: parseInt(document.getElementById('form-lifetime_points').value, 10),
+                    is_admin: document.getElementById('form-is_admin').checked,
+                };
+                break;
+            case 'event':
+                tableName = 'events';
+                dataObject = {
+                    title: document.getElementById('form-title').value,
+                    event_date: new Date(document.getElementById('form-event_date').value).toISOString(),
+                    points_reward: parseInt(document.getElementById('form-points_reward').value, 10),
+                    description: document.getElementById('form-description').value,
+                };
+                break;
+            case 'store':
+                tableName = 'stores';
+                dataObject = {
+                    name: document.getElementById('form-name').value,
+                    logo_url: document.getElementById('form-logo_url').value,
+                };
+                break;
+            case 'product':
+                tableName = 'products';
+                dataObject = {
+                    name: document.getElementById('form-name').value,
+                    store_id: document.getElementById('form-store_id').value,
+                    cost_in_points: parseInt(document.getElementById('form-cost_in_points').value, 10),
+                    discounted_price_inr: parseInt(document.getElementById('form-discounted_price_inr').value, 10),
+                    original_price_inr: parseInt(document.getElementById('form-original_price_inr').value, 10),
+                    images: JSON.parse(document.getElementById('form-images').value || '[]'),
+                    description: document.getElementById('form-description').value,
+                    instructions: document.getElementById('form-instructions').value,
+                };
+                break;
+            case 'challenge':
+                tableName = 'challenges';
+                dataObject = {
+                    title: document.getElementById('form-title').value,
+                    icon: document.getElementById('form-icon').value,
+                    points_reward: parseInt(document.getElementById('form-points_reward').value, 10),
+                    description: document.getElementById('form-description').value,
+                    is_daily: document.getElementById('form-is_daily').checked,
+                };
+                break;
+            case 'level':
+                tableName = 'levels';
+                dataObject = {
+                    level_number: parseInt(document.getElementById('form-level_number').value, 10),
+                    title: document.getElementById('form-title').value,
+                    min_points: parseInt(document.getElementById('form-min_points').value, 10),
+                };
+                break;
+        }
+
+        let query;
+        if (state.editingItem) {
+            // Update
+            query = supabase.from(tableName).update(dataObject).match({ [matchField]: id });
+        } else {
+            // Insert
+            query = supabase.from(tableName).insert(dataObject);
+        }
+
+        const { error } = await query;
+        if (error) throw error;
+
+        showToast(`${type} saved successfully!`, 'success');
+        closeModal();
+        await loadInitialData(); // Reload all data
+
+    } catch (err) {
+        console.error("Form submit error:", err);
+        modalError.textContent = `Error: ${err.message}`;
+    } finally {
+        modalSaveBtn.disabled = false;
+    }
+}
+
+// --- UTILITIES ---
+function showToast(message, type = 'success') {
+    toastMessage.textContent = message;
+    
+    // Reset classes
+    toast.classList.remove('bg-green-500', 'bg-red-500', 'translate-x-full');
+    
+    if (type === 'error') {
+        toast.classList.add('bg-red-500');
+    } else {
+        toast.classList.add('bg-green-500');
+    }
+    
+    // Animate in
+    toast.classList.remove('translate-x-full');
+    
+    // Animate out after 3 seconds
+    setTimeout(() => {
+        toast.classList.add('translate-x-full');
+    }, 3000);
+}
