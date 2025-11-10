@@ -26,6 +26,9 @@ const state = {
 // --- DOM ELEMENTS ---
 const loader = document.getElementById('app-loader');
 const allPages = document.querySelectorAll('.page');
+const sidebar = document.getElementById('sidebar'); // <-- NEW
+const sidebarBackdrop = document.getElementById('sidebar-backdrop'); // <-- NEW
+const menuToggleBtn = document.getElementById('menu-toggle-btn'); // <-- NEW
 const sidebarLinks = document.querySelectorAll('.sidebar-link');
 const logoutButton = document.getElementById('logout-button');
 const adminAvatar = document.getElementById('admin-avatar');
@@ -200,6 +203,17 @@ function setupEventListeners() {
         window.location.href = 'login.html';
     });
 
+    // ===== Mobile Sidebar Toggle =====
+    menuToggleBtn.addEventListener('click', () => {
+        sidebar.classList.remove('-translate-x-full');
+        sidebarBackdrop.classList.remove('hidden');
+    });
+
+    sidebarBackdrop.addEventListener('click', () => {
+        sidebar.classList.add('-translate-x-full');
+        sidebarBackdrop.classList.add('hidden');
+    });
+
     // Theme Toggle
     const updateThemeIcon = () => {
         if (document.documentElement.classList.contains('dark')) {
@@ -230,6 +244,12 @@ function setupEventListeners() {
             e.preventDefault();
             const hash = link.hash;
             navigateTo(hash);
+            
+            // Close sidebar on mobile after navigation
+            if (window.innerWidth < 768) {
+                sidebar.classList.add('-translate-x-full');
+                sidebarBackdrop.classList.add('hidden');
+            }
         });
     });
     
@@ -586,7 +606,7 @@ async function renderStudentDetail(studentId) {
     
     // Render History
     studentDetailHistoryTable.innerHTML = history.data.map(h => `
-        <tr>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(h.created_at).toLocaleString()}</td>
             <td>${h.description}</td>
             <td class="font-medium ${h.points_change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}">${h.points_change}</td>
@@ -595,7 +615,7 @@ async function renderStudentDetail(studentId) {
     
     // Render Rewards
     studentDetailRewardsTable.innerHTML = rewards.data.map(r => `
-        <tr>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(r.purchase_date).toLocaleDateString()}</td>
             <td>${r.products.name}</td>
             <td>${r.status === 'active' ? '<span class="py-1 px-2 text-xs bg-green-400 text-green-900 font-bold rounded-full">Active</span>' : '<span class="py-1 px-2 text-xs bg-gray-500 text-gray-900 font-bold rounded-full">Used</span>'}</td>
@@ -605,7 +625,7 @@ async function renderStudentDetail(studentId) {
 
     // Render Logs
     studentDetailLogsTable.innerHTML = logs.data.map(l => `
-        <tr>
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
             <td class="text-xs text-gray-500 dark:text-gray-400">${new Date(l.created_at).toLocaleString()}</td>
             <td>${l.activity_type.replace(/_/g, ' ')}</td>
             <td class="text-xs">${JSON.stringify(l.details)}</td>
@@ -1172,44 +1192,6 @@ async function handleFormSubmit(e) {
             query = supabase.from(tableName).update(dataObject).match({ [matchField]: id });
         } else {
             // Insert
-            // For levels, the primary key is level_number, not id. Supabase schema seems to have `id` on other tables, but `levels` uses `level_number`.
-            // The provided schema for 'levels' shows `level_number` as PK. The 'delete' logic uses `id`. This is a contradiction.
-            // The schema for 'products' and 'stores' shows `id` as text, but the delete button passes an integer.
-            // The schema for `levels` shows `id` is not a column. The form tries to edit/delete by `id`.
-            // The schema provided shows `levels` PK is `level_number`.
-            // But the code `state.allLevels.find(i => i.id == id)` implies an `id` column.
-            // The schema also shows `products` and `stores` PKs are `text`, but the form passes `id` from `state.editingItem?.id` which is likely an integer.
-            // ... I will assume the code's `delete().match({ id: id })` is correct and the schema `levels` table *also* has a hidden `id` column, or the schema is simplified.
-            // The original `addCrudListeners` uses `match({ id: id })` for all deletes.
-            // The provided schema shows `products` `id` is `text`.
-            
-            // Re-checking schema:
-            // challenges: id (bigint) - OK
-            // events: id (bigint) - OK
-            // levels: level_number (integer) PK - **MISMATCH** with `delete().match({ id: id })`
-            // products: id (text) PK - **MISMATCH** with `delete().match({ id: id })`
-            // stores: id (text) PK - **MISMATCH** with `delete().match({ id: id })`
-            // students: student_id (text) PK - OK (code uses student_id)
-            
-            // The `addCrudListeners` delete logic is:
-            // `supabase.from(type).delete().match({ id: id })`
-            // This is **WRONG** for levels, products, and stores based on the schema.
-            // It should be:
-            // - levels: `match({ level_number: id })` (if id is level_number)
-            // - products: `match({ id: id })` (if id is the text UUID)
-            // - stores: `match({ id: id })` (if id is the text UUID)
-            
-            // The `edit-btn` dataset `data-id` is set from `event.id`, `student.student_id`, `store.id`, `product.id`, `c.id`, `l.id`.
-            // This implies `levels` *does* have an `id` column that isn't its PK.
-            // The schema for `levels` in `app.js` `loadInitialData` is `supabase.from('levels').select('*')`.
-            // The schema provided by the user is *incomplete* or *wrong* compared to the code.
-            // The `challenges` table has an `id` `bigint`. `levels` *must* also have one for the code to work.
-            
-            // I will trust the *code's* logic over the *schema comment*. The code consistently uses `id`.
-            // The `levels` table PK is `level_number`, but it probably has a separate `id` column.
-            
-            // The only table that uses a non-`id` PK in the *form* is 'student'.
-            
             query = supabase.from(tableName).insert(dataObject);
         }
 
