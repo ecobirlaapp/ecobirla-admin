@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function checkAuthAndAdmin() {
-    const { data: { session }, error } } = await supabase.auth.getSession();
+    const { data: { session }, error } = await supabase.auth.getSession(); // <-- THIS LINE IS FIXED
 
     if (error || !session) {
         window.location.href = 'login.html';
