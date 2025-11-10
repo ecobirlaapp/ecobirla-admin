@@ -444,7 +444,8 @@ function renderAnalyticsCharts(range = 'week') {
     const pageViews = filteredActivity
         .filter(log => log.activity_type === 'page_view')
         .reduce((acc, log) => {
-            const page = log.details.page || 'unknown';
+            // FIX: Handle potential null details
+            const page = log.details?.page || 'unknown';
             acc[page] = (acc[page] || 0) + 1;
             return acc;
         }, {});
@@ -729,7 +730,7 @@ async function renderEventDetail(eventId) {
         .from('event_rsvps')
         .select('*, students(*)')
         .eq('event_id', eventId);
-        // .order('created_at'); // <-- FIX: Removed this line
+        // .order('created_at'); // <-- FIX: Removed this line that caused the crash
         
     if (error) {
         console.error('Error loading RSVPs:', error);
@@ -743,8 +744,7 @@ async function renderEventDetail(eventId) {
             <td class="font-medium text-gray-900 dark:text-white">${rsvp.students.name}</td>
             <td class="text-gray-600 dark:text-gray-300">${rsvp.student_id}</td>
             <td class="text-gray-600 dark:text-gray-300">${rsvp.students.course}</td>
-            <td class="text-gray-500 dark:text-gray-400 text-xs">${new Date(rsvp.created_at).toLocaleDateString()}</td>
-            <td class="text-center">
+            <td class="text-gray-500 dark:text-gray-400 text-xs">${rsvp.students.email || 'N/A'}</td> <td class="text-center">
                 <input type="checkbox" class="attended-checkbox w-5 h-5 rounded" data-student-id="${rsvp.student_id}">
             </td>
         </tr>
@@ -912,8 +912,8 @@ async function exportEventData(type) {
     const event = state.allEvents.find(e => e.id == eventId);
     if (!event) return;
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    // FIX: Use the correct class from the UMD module
+    const doc = new window.jspdf.jsPDF();
     
     let title, data, head;
     const studentsToExport = (type === 'rsvp')
@@ -947,7 +947,8 @@ async function exportEventData(type) {
     doc.setFontSize(11);
     doc.text(`Total: ${data.length} student(s)`, 14, 30);
     
-    doc.autoTable({
+    // FIX: Call autoTable as a function from the window object
+    window.autoTable(doc, {
         startY: 35,
         head: head,
         body: data,
