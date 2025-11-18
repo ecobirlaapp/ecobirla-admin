@@ -1,127 +1,117 @@
-/* admin/admin.css */
+/* =========================================
+   1. GLOBAL & FONT
+   ========================================= */
 body {
     font-family: 'Inter', sans-serif;
 }
 
-/* Page Transitions */
-.page {
+/* =========================================
+   2. SIDEBAR NAVIGATION
+   ========================================= */
+.nav-item {
+    color: #4B5563; /* text-gray-600 */
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+.nav-item:hover {
+    background-color: #F3F4F6; /* hover:bg-gray-100 */
+    color: #111827; /* hover:text-gray-900 */
+}
+.nav-item.active {
+    background-color: #ECFDF5; /* bg-green-50 */
+    color: #059669; /* text-green-700 */
+    font-weight: 600; /* font-semibold */
+}
+
+/* =========================================
+   3. DASHBOARD STAT CARDS
+   ========================================= */
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem; /* gap-6 */
+    background-color: white;
+    padding: 1.5rem; /* p-6 */
+    border-radius: 0.75rem; /* rounded-xl */
+    border: 1px solid #E5E7EB; /* border-gray-200 */
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
+}
+
+/* =========================================
+   4. PAGE SECTION VISIBILITY
+   ========================================= */
+.page-section {
     animation: fadeIn 0.3s ease-in-out;
 }
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Sidebar Active State */
-.sidebar-link.active {
-    background-color: #059669; /* dark:bg-green-600 */
-    color: white;
-}
-.sidebar-link.active svg {
-    color: white;
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-::-webkit-scrollbar-track {
-    background: #e5e7eb; /* light:bg-gray-200 */
-}
-::-webkit-scrollbar-thumb {
-    background: #9ca3af; /* light:bg-gray-400 */
-    border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #6b7280; /* light:bg-gray-500 */
-}
-/* Dark scrollbar */
-.dark::-webkit-scrollbar-track {
-    background: #1f2937; /* dark:bg-gray-800 */
-}
-.dark::-webkit-scrollbar-thumb {
-    background: #4b5563; /* dark:bg-gray-600 */
-}
-.dark::-webkit-scrollbar-thumb:hover {
-    background: #6b7280; /* dark:bg-gray-500 */
+/* =========================================
+   5. TABLE STYLES
+   ========================================= */
+table th,
+table td {
+    padding: 1rem 1.5rem; /* px-6 py-4 */
+    vertical-align: middle;
 }
 
+table tbody tr:hover {
+    background-color: #F9FAFB; /* hover:bg-gray-50 */
+}
 
-/* Table Styles */
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
+/* =========================================
+   6. FORM & MODAL
+   ========================================= */
+input[type="text"],
+input[type="number"],
+input[type="datetime-local"],
+textarea,
+select {
+    border: 1px solid #D1D5DB; /* border-gray-300 */
+    font-size: 0.875rem; /* text-sm */
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
-.data-table th, .data-table td {
-    padding: 12px 16px;
-    border-bottom: 1px solid #e5e7eb; /* light:border-gray-200 */
-    text-align: left;
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: #10B981; /* ring-green-500 */
+    box-shadow: 0 0 0 2px #A7F3D0; /* ring-2 ring-green-200 */
 }
-.dark .data-table th, .dark .data-table td {
-    border-bottom: 1px solid #374151; /* dark:border-gray-700 */
+
+/* Modal transition */
+.modal {
+    transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
 }
-.data-table th {
-    background-color: #f3f4f6; /* light:bg-gray-100 */
+
+/* =========================================
+   7. VERIFICATION BUTTONS
+   ========================================= */
+.btn-approve {
+    background-color: #ECFDF5;
+    color: #065F46;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 500;
     font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #6b7280; /* light:text-gray-500 */
-}
-.dark .data-table th {
-    background-color: #1f2937; /* dark:bg-gray-800 */
-    color: #9ca3af; /* dark:text-gray-400 */
-}
-.data-table tbody tr:hover {
-    background-color: #f9fafb; /* light:hover:bg-gray-50 */
-}
-.dark .data-table tbody tr:hover {
-    background-color: #1f2937; /* dark:hover:bg-gray-800 */
-}
-.data-table td {
-    font-size: 0.875rem;
-    color: #374151; /* light:text-gray-700 */
-}
-.dark .data-table td {
-    color: #d1d5db; /* dark:text-gray-300 */
-}
-.data-table .action-btn {
-    /* Styles are applied via Tailwind classes in JS */
     transition: background-color 0.2s;
 }
-
-/* Modal Styles */
-#modal-backdrop {
-    transition: opacity 0.3s ease-in-out;
-}
-#modal-container {
-    transition: all 0.3s ease-in-out;
-    max-height: 90vh;
+.btn-approve:hover {
+    background-color: #D1FAE5;
 }
 
-/* Chart Container */
-#views-over-time-chart, #page-view-chart {
-    max-height: 400px;
+.btn-reject {
+    background-color: #FEF2F2;
+    color: #991B1B;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 0.75rem;
+    transition: background-color 0.2s;
 }
-
-/* Student Detail Tab */
-.student-tab.active {
-    color: #059669; /* green-600 */
-    border-bottom: 2px solid #059669;
-}
-.student-tab {
-    border-bottom: 2px solid transparent;
-}
-.dark .student-tab.active {
-    color: #10B981; /* green-500 */
-    border-bottom: 2px solid #10B981;
-}
-
-/* Analytics Range Button */
-.analytics-range-btn.analytics-active {
-    background-color: #059669; /* bg-green-600 */
-    color: white;
-}
-.dark .analytics-range-btn.analytics-active {
-    color: white;
+.btn-reject:hover {
+    background-color: #FEE2E2;
 }
